@@ -28,7 +28,14 @@ corresponding kernel configurations `config-*`). That way we can get
 an overview on what is possible with RTAI and which hardware has been
 used.
 
+See the `latencies-*` files for complete test results, kernel
+parameter, CPU and hardware properties, kernel messages, etc.  The
+kernel configurations are stored in the corresponding `config-*`
+files.
+
 ### 1. abbott rtai-5.1 4.4.115
+
+kern/latency test for 2000seconds, all numbers in nanoseconds:
 
 | isolcpus | load | mean jitter | stdev   | max     |
 |----------|------|------------:|--------:|--------:|
@@ -39,6 +46,8 @@ used.
 
 
 ### 2. mule rtai-5.1 4.4.115
+
+kern/latency test for 2000seconds, all numbers in nanoseconds:
 
 | isolcpus | load | mean jitter | stdev   | max     |
 |----------|------|------------:|--------:|--------:|
