@@ -1948,7 +1948,7 @@ function test_kernel {
     rm -f lsmod.dat
 
     # report number:
-    REPORT_NAME=${LINUX_KERNEL}-${RTAI_DIR}-$(hostname)
+    REPORT_NAME=$(hostname)-${RTAI_DIR}-${LINUX_KERNEL}
     NUM=001
     LASTREPORT="$(ls latencies-${REPORT_NAME}-*-* 2> /dev/null | tail -n 1)"
     if test -n "$LASTREPORT"; then
@@ -2280,7 +2280,7 @@ function test_batch {
 #
 # for testing all the kernel parameter.
 #
-# The test results are recorded in the latencies-${LINUX_KERNEL}-${RTAI_DIR}-$(hostname)* files.
+# The test results are recorded in the latencies-$(hostname)-${RTAI_DIR}-${LINUX_KERNEL}-* files.
 #
 # Generate and view a summary table of the test results by calling
 #
