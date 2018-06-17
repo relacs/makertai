@@ -1,4 +1,6 @@
 *~
+makertaikernel.cfg
+makertaikernel.log
 *.*.cmd
 .tmp_versions/
 Module.symvers
@@ -6,4 +8,5 @@ Module.symvers
 *.ko
 *.o
 modules.order
-
+#latencies-*-*
+#config-*-*

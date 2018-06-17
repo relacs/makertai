@@ -39,7 +39,7 @@
 : ${KERNEL_DEBUG:=false}   # generate debugable kernel (see man crash), set with -D
 
 : ${KERNEL_PARAM:="idle=poll"}      # kernel parameter to be passed to grub
-: ${KERNEL_PARAM_DESCR:="idle"}     # one-word description of KERNEL_PARAM 
+: ${KERNEL_PARAM_DESCR:="poll"}     # one-word description of KERNEL_PARAM 
                                     # used for naming test resutls
 : ${BATCH_KERNEL_PARAM:="oops=panic nmi_watchdog=panic panic_on_warn softlockup_panic=1 unknown_nmi_panic panic=-1"} # additional kernel parameter passed to grub for test batch - we want to reboot in any case!
 : ${KERNEL_CONFIG_BACKUP:="config-backup"}     # stores initial kernel configuration for test batches
@@ -1683,14 +1683,23 @@ function test_result {
     TESTMODE="$1"
     TEST_RESULT=""
     if test -n "$TESTMODE" && test -f "results-${TESTMODE}-latency.dat"; then
-	TEST_DATA=$(grep RTD results-${TESTMODE}-latency.dat | tail -n 1)
-	OVERRUNS=$(echo "$TEST_DATA" | awk -F '\\|[ ]*' '{printf("%d", $7)}')
+	N_DATA=$(grep RTD results-${TESTMODE}-latency.dat | wc -l)
+	LINE=20
+	test "$N_DATA" -lt 60 && LINE=10
+	test "$N_DATA" -lt 20 && LINE=1
+	read LATENCY OVERRUNS < <(awk -F '\\|[ ]*' "/RTD/ {
+            nd++
+            if ( nd == $LINE ) {
+                overruns0 = \$7
+            }
+            if ( nd>$LINE ) { 
+                overruns1 = \$7
+                s+=\$5-\$2
+                n++ } 
+        } END {printf(\"%.0f %d\n\", s/n, overruns1-overruns0)}" results-${TESTMODE}-latency.dat)
 	if test "$OVERRUNS" -gt "0"; then
 	    TEST_RESULT="failed"
 	else
-	    LAT_MIN=$(echo "$TEST_DATA" | awk -F '\\|[ ]*' '{printf("%d", $3)}')
-	    LAT_MAX=$(echo "$TEST_DATA" | awk -F '\\|[ ]*' '{printf("%d", $6)}')
-	    LATENCY=$(( $LAT_MAX - $LAT_MIN ))
 	    if test "$LATENCY" -gt 20000; then
 		TEST_RESULT="bad"
 	    elif test "$LATENCY" -gt 10000; then
