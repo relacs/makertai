@@ -262,8 +262,8 @@ Test the performance of the rtai-patched linux kernel.
 Usage:
 
 sudo ${MAKE_RTAI_KERNEL} [-d] [-n xxx] [-r xxx] [-k xxx] test [[hal|sched|math|comedi] [calib]
-     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [<NNN>] 
-     [auto <XXX> | batch clocks|cstates|acpi|isolcpus|<FILE>]]
+     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [latency]
+     [<NNN>] [auto <XXX> | batch clocks|cstates|acpi|isolcpus|<FILE>]]
 
 EOF
     help_kernel_options
@@ -301,10 +301,11 @@ performance. This can be controlled by the following key-words:
   net      : produce network traffic
   full     : all of the above
 
-You can also specify on which CPU the test should be run:
+Further options specify further conditions for running the tests:
   cpu=<CPUIDS> : run tests on CPU with ids <CPUIDS>. <CPUIDS> is a comma separated
                  list of CPUs. The first CPU is 0. For example, cpu=2 runs the tests
                  on the third CPU.
+  latency      : Keep all CPUs in C0 state by writing a zero to the file /dev/cpu_dma_latency .
 
 The rtai tests need to be terminated by pressing ^C and a string
 describing the test scenario needs to be provided. This can be
@@ -336,7 +337,9 @@ In a batch FILE
   describes a configuration to be tested:
   <descr> is a one-word string describing the kernel parameter 
       (a description of the load settings is added automatically to the description)
-  <load/cpus> defines the load processes to be started before testing (cpu io mem net full, see above) and/or the CPUs on which the test should be run (cpu=<CPUIDS>, see above).
+  <load/cpus/latency> defines the load processes to be started before testing (cpu io mem net full, see above), the CPUs on which the test should be run (cpu=<CPUIDS>, see above), and/or
+    whether all CPUs should be kept in C0 state (latency, see above).
+.
   <param> is a list of kernel parameter to be used.
 - a line of the format
   <descr> : CONFIG : <file>
@@ -357,9 +360,10 @@ to generate a file with various kernel configurations.
 
 Example lines:
   lowlatency : CONFIG :
-  idlenohz : : idle=poll nohz=off
+  pollnohz : : idle=poll nohz=off
+  nohz : latency : nohz=off
   nodyntics : CONFIG : config-nodyntics
-  idleisol : cpu io : idle=poll isolcpus=0,1
+  pollisol : cpu io : idle=poll isolcpus=0,1
   isol2 : io cpu=2 : isolcpus=2
 See the file written by "batch default" for suggestions, and the file
 $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}/Documentation/kernel-parameters.txt
@@ -1873,6 +1877,7 @@ function test_kernel {
     TESTMODE=""
     LOADMODE=""
     CPUIDS=""
+    LATENCY=false
     MAXMODULE="4"
     CALIBRATE="false"
     DESCRIPTION=""
@@ -1897,6 +1902,7 @@ function test_kernel {
 	    net) LOADMODE="$LOADMODE net" ;;
 	    full) LOADMODE="cpu io mem net" ;;
 	    cpu=*) CPUIDS="${1#cpu=}" ;;
+	    latency) LATENCY=true ;;
 	    [0-9]*) TEST_TIME="$((10#$1))" ;;
 	    auto) shift; test -n "$1" && { DESCRIPTION="$1"; TESTSPECS="$TESTSPECS $1"; } ;;
 	    batch) shift; test_batch "$1" "$TEST_TIME" "$TESTMODE" ${TESTSPECS% batch} ;;
@@ -1927,13 +1933,14 @@ function test_kernel {
 
     if $DRYRUN; then
 	echo "run some tests on currently running kernel ${KERNEL_NAME}"
-	echo "  test mode(s)        : $TESTMODE"
-	echo "  max module to load  : $MAXMODULE"
-	echo "  apply load          : $LOADMODE"
-	echo "  CPU ids             : $CPUIDS"
-	echo "  rtai_sched parameter: $RTAI_SCHED_PARAM"
-	echo "  rtai_hal parameter  : $RTAI_HAL_PARAM"
-	echo "  description         : $DESCRIPTION"
+	echo "  test mode(s)            : $TESTMODE"
+	echo "  max module to load      : $MAXMODULE"
+	echo "  apply load              : $LOADMODE"
+	echo "  CPU ids                 : $CPUIDS"
+	echo "  Limit global CPU latency: $LATENCY"
+	echo "  rtai_sched parameter    : $RTAI_SCHED_PARAM"
+	echo "  rtai_hal parameter      : $RTAI_HAL_PARAM"
+	echo "  description             : $DESCRIPTION"
 	return 0
     fi
 
@@ -1983,6 +1990,16 @@ function test_kernel {
     if test -n "$CPUIDS"; then
 	NAME="${NAME}-cpu${CPUIDS%%,*}"
 	setup_rtai "$CPUIDS"
+    fi
+    # limit global CPU latency:
+    if $LATENCY; then
+	if test -f /dev/cpu_dma_latency; then
+	    NAME="${NAME}-nolatency"
+	    exec 5> /dev/cpu_dma_latency
+	    echo -n -e "\x00\x00\x00\x00" >&5
+	else
+	    LATENCY=false
+	fi
     fi
     # add load information to description:
     if test -n "$LOADMODE"; then
@@ -2226,6 +2243,12 @@ function test_kernel {
     # restore CPU mask:
     if test -n "$CPUIDS"; then
 	restore_rtai
+    fi
+
+    # restore global CPU latency:
+    if $LATENCY; then
+	# close /dev/cpu_dma_latency file:
+	exec 5>&-
     fi
 }
 
