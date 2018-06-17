@@ -9,7 +9,7 @@ MODULE_DESCRIPTION( "Poll a CPU to keep it in C0 state" );
 MODULE_AUTHOR( "Jan Benda <jan.benda@uni-tuebingen.de>" );
 
 
-struct task_struct *task;
+static struct task_struct *task;
 
 
 int poll_task( void *data )
@@ -54,4 +54,8 @@ static void __exit poll_exit( void )
 module_init( poll_init );
 module_exit( poll_exit );
 
-// check with ps -ef | grep poll
+/*
+check with 
+ps -ef | grep poll
+*/
+

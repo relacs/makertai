@@ -25,8 +25,8 @@ int isolatedCPUId = -1;
    If -2 then apply zero latency to all CPUs. */
 static int cpu_id = -2;
 
-// module_param( cpu_dma_latency, int, S_IRUSR | S_IRGRP | S_IROTH );
-// MODULE_PARM_DESC( cpu_dma_latency, "CPU DMA latency in microseconds" );
+module_param( cpu_id, int, S_IRUSR | S_IRGRP | S_IROTH );
+MODULE_PARM_DESC( cpu_id, "Id of CPU on which latencies should be set to zero" );
 
 
 static struct pm_qos_request cpu_dma_latency_req;
@@ -103,3 +103,9 @@ static void __exit cleanup_cpulatency( void )
 
 module_init( init_cpulatency );
 module_exit( cleanup_cpulatency );
+
+/*
+check with
+
+sudo hexdump -x /dev/cpu_dma_latency
+ */
