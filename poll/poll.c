@@ -14,6 +14,8 @@ static struct task_struct *task;
 
 int poll_task( void *data )
 {
+  // XXX this is not so simple!!!!
+  // see kernel/sched/idle.c for the kernel implementation of idle=poll
   int i;
   printk( KERN_INFO "RUN POLL\n");
   // allow_signal( SIGKILL );

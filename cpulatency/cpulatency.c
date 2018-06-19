@@ -13,8 +13,8 @@ MODULE_AUTHOR( "Jan Benda <jan.benda@uni-tuebingen.de>" );
 
 
 /* The id of the CPU on which the latency should be limited to zero.
-   If -1 then take the first isolated CPU.
-   If -2 then apply zero latency to all CPUs. */
+   If -1: take the first isolated CPU.
+   If -2: apply zero latency to all CPUs. */
 static int cpu_id = -2;
 module_param( cpu_id, int, S_IRUSR | S_IRGRP | S_IROTH );
 MODULE_PARM_DESC( cpu_id, "Id of CPU on which latencies should be set to zero" );
