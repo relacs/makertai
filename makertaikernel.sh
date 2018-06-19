@@ -1691,12 +1691,15 @@ function test_result {
             nd++
             if ( nd == $LINE ) {
                 overruns0 = \$7
+                maxjitter = \$5-\$2
             }
             if ( nd>$LINE ) { 
                 overruns1 = \$7
-                s+=\$5-\$2
-                n++ } 
-        } END {printf(\"%.0f %d\n\", s/n, overruns1-overruns0)}" results-${TESTMODE}-latency.dat)
+                jitter = \$5-\$2
+                if ( maxjitter < jitter ) { 
+                    maxjitter = jitter }
+            } 
+        } END {printf(\"%.0f %d\n\", maxjitter, overruns1-overruns0)}" results-${TESTMODE}-latency.dat)
 	if test "$OVERRUNS" -gt "0"; then
 	    TEST_RESULT="failed"
 	else
@@ -1745,7 +1748,11 @@ function test_save {
 	    TN=latency
 	    TEST_RESULTS=results-$TD-$TN.dat
 	    if test -f "$TEST_RESULTS"; then
-		awk '{if ($1 == "RTD|") { d=$5-$2; sum+=d; sumsq+=d*d; n++; maxd=$6-$3; if (ors<$7) ors=$7}} END {if (n>0) printf( "%7.0f| %7.0f| %7.0f| %5d| %7d| ", maxd, sum/n, sqrt(sumsq/n-(sum/n)*(sum/n)), n, ors ) }' "$TEST_RESULTS"
+		N_DATA=$(grep RTD results-${TESTMODE}-latency.dat | wc -l)
+		LINE=20
+		test "$N_DATA" -lt 60 && LINE=10
+		test "$N_DATA" -lt 20 && LINE=1
+		awk "{if (\$1 == 'RTD|') { if ( nd == $LINE ) {ors0=\$7}; if ( nd >= $LINE ) { d=\$5-\$2; sum+=d; sumsq+=d*d; n++; if ( maxd<d ) maxd=d; if (ors<\$7) ors=\$7}}} END {if (n>0) printf( \"%7.0f| %7.0f| %7.0f| %5d| %7d| \", maxd, sum/n, sqrt(sumsq/n-(sum/n)*(sum/n)), n, ors-ors0 ) }" "$TEST_RESULTS"
 	    elif [[ $TESTED == *${T}* ]]; then
 		printf "%7s| %7s| %7s| %5s| %7s| " "o" "o" "o" "o" "o"
 	    else
