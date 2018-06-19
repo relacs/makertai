@@ -262,8 +262,8 @@ Test the performance of the rtai-patched linux kernel.
 Usage:
 
 sudo ${MAKE_RTAI_KERNEL} [-d] [-n xxx] [-r xxx] [-k xxx] test [[hal|sched|math|comedi] [calib]
-     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [latency]
-     [<NNN>] [auto <XXX> | batch clocks|cstates|acpi|isolcpus|<FILE>]]
+     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [latency|cpulatency]
+     [<NNN>] [auto <XXX> | batch clocks|cstates|acpi|isolcpus|dma|poll|<FILE>]]
 
 EOF
     help_kernel_options
@@ -306,6 +306,9 @@ Further options specify further conditions for running the tests:
                  list of CPUs. The first CPU is 0. For example, cpu=2 runs the tests
                  on the third CPU.
   latency      : Keep all CPUs in C0 state by writing a zero to the file /dev/cpu_dma_latency .
+  cpulatency   : Using PM QoS request to keep CPUs in C0 state. If a CPU was specified for 
+                 running the tests (cpu=<CPUIDS> parameter), only that CPU is put into C0, 
+                 if possible. Uses the cpulatency kernel module.
 
 The rtai tests need to be terminated by pressing ^C and a string
 describing the test scenario needs to be provided. This can be
@@ -323,6 +326,7 @@ under different loads you may add as the last arguments:
   batch apic     : write a default batch file with apic related kernel parameters to be tested
   batch isolcpus : write a default batch file with load settings and isolcpus kernel parameters to be tested
   batch dma      : write a default batch file with io load, dma, and isolcpus kernel parameters to be tested
+  batch poll     : write a default batch file for testing run-time alternatives to idle=poll
 This successively reboots into the RTAI kernel with the kernel parameter 
 set to the ones specified by the KERNEL_PARAM variable and as specified in FILE,
 and runs the tests as specified by the previous commands (without the "auto" command).
@@ -336,10 +340,11 @@ In a batch FILE
   <descr> : <load/cpus> : <params>
   describes a configuration to be tested:
   <descr> is a one-word string describing the kernel parameter 
-      (a description of the load settings is added automatically to the description)
-  <load/cpus/latency> defines the load processes to be started before testing (cpu io mem net full, see above), the CPUs on which the test should be run (cpu=<CPUIDS>, see above), and/or
-    whether all CPUs should be kept in C0 state (latency, see above).
-.
+    (a description of the load settings is added automatically to the description)
+  <load/cpus/latency/cpulatency> defines the load processes to be
+    started before testing (cpu io mem net full, see above), the CPUs
+    on which the test should be run (cpu=<CPUIDS>, see above), and/or
+    whether CPUs should be kept in C0 state (latency or cpulatency, see above).
   <param> is a list of kernel parameter to be used.
 - a line of the format
   <descr> : CONFIG : <file>
@@ -1894,6 +1899,7 @@ function test_kernel {
     LOADMODE=""
     CPUIDS=""
     LATENCY=false
+    CPULATENCY=false
     MAXMODULE="4"
     CALIBRATE="false"
     DESCRIPTION=""
@@ -1918,7 +1924,8 @@ function test_kernel {
 	    net) LOADMODE="$LOADMODE net" ;;
 	    full) LOADMODE="cpu io mem net" ;;
 	    cpu=*) CPUIDS="${1#cpu=}" ;;
-	    latency) LATENCY=true ;;
+	    latency) LATENCY=true; CPULATENCY=false ;;
+	    cpulatency) CPULATENCY=true; LATENCY=false ;;
 	    [0-9]*) TEST_TIME="$((10#$1))" ;;
 	    auto) shift; test -n "$1" && { DESCRIPTION="$1"; TESTSPECS="$TESTSPECS $1"; } ;;
 	    batch) shift; test_batch "$1" "$TEST_TIME" "$TESTMODE" ${TESTSPECS% batch} ;;
@@ -1949,14 +1956,15 @@ function test_kernel {
 
     if $DRYRUN; then
 	echo "run some tests on currently running kernel ${KERNEL_NAME}"
-	echo "  test mode(s)            : $TESTMODE"
-	echo "  max module to load      : $MAXMODULE"
-	echo "  apply load              : $LOADMODE"
-	echo "  CPU ids                 : $CPUIDS"
-	echo "  Limit global CPU latency: $LATENCY"
-	echo "  rtai_sched parameter    : $RTAI_SCHED_PARAM"
-	echo "  rtai_hal parameter      : $RTAI_HAL_PARAM"
-	echo "  description             : $DESCRIPTION"
+	echo "  test mode(s)             : $TESTMODE"
+	echo "  max module to load       : $MAXMODULE"
+	echo "  apply load               : $LOADMODE"
+	echo "  CPU ids                  : $CPUIDS"
+	echo "  Limit global CPU latency : $LATENCY"
+	echo "  Limit CPU latency via QoS: $CPULATENCY"
+	echo "  rtai_sched parameter     : $RTAI_SCHED_PARAM"
+	echo "  rtai_hal parameter       : $RTAI_HAL_PARAM"
+	echo "  description              : $DESCRIPTION"
 	return 0
     fi
 
@@ -2002,11 +2010,7 @@ function test_kernel {
     else
 	NAME="$DESCRIPTION"
     fi
-    # add CPU mask:
-    if test -n "$CPUIDS"; then
-	NAME="${NAME}-cpu${CPUIDS%%,*}"
-	setup_rtai "$CPUIDS"
-    fi
+
     # limit global CPU latency:
     if $LATENCY; then
 	if test -f /dev/cpu_dma_latency; then
@@ -2017,6 +2021,37 @@ function test_kernel {
 	    LATENCY=false
 	fi
     fi
+
+    # limit CPU latency via PM QoS:
+    if $CPULATENCY; then
+	if test -d cpulatency; then
+	    cd cpulatency
+	    make clean
+	    make
+	    CPU_ID=""
+	    test -n "$CPUIDS" && CPU_ID="cpu_id=$CPU_IDS"
+	    if insmod cpulatency $CPU_ID; then
+		CPU_ID=$(grep cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
+		case CPU_ID in
+		    all ) NAME="${NAME}-nocpulatency" ;;
+		    none ) ;;
+		    *) NAME="${NAME}-nocpulatency${CPU_ID}" ;;
+		esac 
+	    else
+		CPULATENCY=false
+	    fi
+	    cd - > /dev/null
+	else
+	    CPULATENCY=false
+	fi
+    fi
+
+    # add CPU mask:
+    if test -n "$CPUIDS"; then
+	NAME="${NAME}-cpu${CPUIDS%%,*}"
+	setup_rtai "$CPUIDS"
+    fi
+
     # add load information to description:
     if test -n "$LOADMODE"; then
 	NAME="${NAME}-"
@@ -2256,15 +2291,20 @@ function test_kernel {
     rm -f load.dat
     rm -f lsmod.dat
 
-    # restore CPU mask:
-    if test -n "$CPUIDS"; then
-	restore_rtai
-    fi
-
     # restore global CPU latency:
     if $LATENCY; then
 	# close /dev/cpu_dma_latency file:
 	exec 5>&-
+    fi
+
+    # restore CPU latency via PM QoS:
+    if $CPULATENCY; then
+	rmmod cpulatency
+    fi
+
+    # restore CPU mask:
+    if test -n "$CPUIDS"; then
+	restore_rtai
     fi
 }
 
@@ -2280,7 +2320,7 @@ function test_batch {
 
     # write default batch files:
     if ! test -f "$BATCH_FILE"; then
-	DEFAULT_BATCHES="clocks cstates acpi apic isolcpus dma"
+	DEFAULT_BATCHES="clocks cstates acpi apic isolcpus dma poll"
 	for DEFAULT_BATCH in $DEFAULT_BATCHES; do
 	    if test "$BATCH_FILE" = "$DEFAULT_BATCH"; then
 		BATCH_FILE=test${DEFAULT_BATCH}.mrk
@@ -2347,6 +2387,7 @@ EOF
 		    cstates) cat <<EOF > $BATCH_FILE
 # $VERSION_STRING
 # Batch file for testing RTAI kernel with kernel parameter related to processor c-states.
+# You need to enable PM idle states in the kernel configuration.
 
 # c-states:
 plain : :
@@ -2355,6 +2396,7 @@ idlehalt : : idle=halt
 intelcstate1 : : intel_idle.max_cstate=1
 processorcstate1 : : intel_idle.max_cstate=0 processor.max_cstate=1
 processorcstate0 : : intel_idle.max_cstate=0 processor.max_cstate=0
+nopstate : : intel_pstate=disable
 EOF
 			;;
 
@@ -2368,7 +2410,6 @@ plain : :
 acpinoirq : : acpi=noirq
 pcinoacpi : : pci=noacpi
 pcinomsi : : pci=nomsi
-nopstate : : intel_pstate=disable
 EOF
 			;;
 
@@ -2446,41 +2487,26 @@ EOF
 # batch file for testing RTAI kernel with cpu isolation
 # Replace all "=1" by the index of the cpu you want to isolate.
 
-# standard cpu
-plain : io :
-dma : io : libata.dma=0
-
-# non-isolated on cpu 0
-plain : cpu=0 io :
-dma : cpu=0 io : libata.dma=0
-
-# isolcpus on cpu 0:
-isolcpus0 : cpu=0 io : isolcpus=0,1
-nodma-isolcpus0 : cpu=0 io : libata.dma=0 isolcpus=0,1
-
-# non-isolated on cpu 1
+# non-isolated
 plain : cpu=1 io :
 nodma : cpu=1 io : libata.dma=0
 
-# isolcpus on cpu 1:
+# isolcpus
 isolcpus1 : cpu=1 io : isolcpus=1
 nodma-isolcpus1 : cpu=1 io : libata.dma=0 isolcpus=1
+EOF
+			;;
 
-# non-isolated on cpu 2
-plain : cpu=2 io :
-nodma : cpu=2 io : libata.dma=0
+		    poll) cat <<EOF > $BATCH_FILE
+# $VERSION_STRING
+# batch file for testing RTAI kernel with idle=poll and run-time alternatives.
+# Replace all "=0" by the index of the cpu where you want to run the tests.
 
-# isolcpus on cpu 2:
-isolcpus2 : cpu=2 io : isolcpus=2
-nodma-isolcpus2 : cpu=2 io : libata.dma=0 isolcpus=2
-
-# non-isolated on cpu 3
-plain : cpu=3 io :
-nodma : cpu=3 io : libata.dma=0
-
-# isolcpus on cpu 3:
-isolcpus3 : cpu=3 io : isolcpus=3
-nodma-isolcpus3 : cpu=3 io : libata.dma=0 isolcpus=3
+plain : cpu=0 :
+poll : cpu=0 : idle=poll
+plain : cpu=0 latency :
+plain : cpu=0 cpulatency :
+poll : cpu=0 : idle=poll
 EOF
 			;;
 		esac

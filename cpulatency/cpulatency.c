@@ -77,6 +77,7 @@ static int __init init_cpulatency( void )
     memset( &cpu_dma_latency_req, 0, sizeof cpu_dma_latency_req );
     pm_qos_add_request( &cpu_dma_latency_req, PM_QOS_CPU_DMA_LATENCY, latency );
     printk( KERN_INFO "cpulatency: set latency of all CPUs to zero\n" );
+    printk( KERN_INFO "cpulatency: CPU=all\n" );
     /* This is equivalent to what the /dev/cpu_dma_latency file does! */
   }
 
@@ -92,9 +93,11 @@ static int __init init_cpulatency( void )
       dev_pm_qos_add_request( cpudev, &cpu_resume_latency_req, DEV_PM_QOS_RESUME_LATENCY, latency );
 #endif
       printk( KERN_INFO "cpulatency: set latency for CPU %d to zero\n", cpu_id );
+      printk( KERN_INFO "cpulatency: CPU=%d\n", cpu_id );
     }
     else {
       printk( KERN_INFO "cpulatency: invalid CPU id %d\n", cpu_id );
+      printk( KERN_INFO "cpulatency: CPU=none\n" );
       return -EINVAL;
     }
   }
