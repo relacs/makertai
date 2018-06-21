@@ -651,39 +651,39 @@ function print_grub {
 
 function print_versions {
     echo "Versions:"
-    echo "  kernel: ${LINUX_KERNEL}"
-    echo "  gcc   : $(gcc --version | head -n 1)"
+    echo "  kernel     : ${LINUX_KERNEL}"
+    echo "  gcc        : $(gcc --version | head -n 1)"
     if test -f ${LOCAL_SRC_PATH}/${RTAI_DIR}/revision.txt; then
-	echo "  rtai  : ${RTAI_DIR} from $(cat ${LOCAL_SRC_PATH}/${RTAI_DIR}/revision.txt)"
-	echo "  patch : ${RTAI_PATCH}"
+	echo "  rtai       : ${RTAI_DIR} from $(cat ${LOCAL_SRC_PATH}/${RTAI_DIR}/revision.txt)"
+	echo "  patch      : ${RTAI_PATCH}"
     elif test -d ${LOCAL_SRC_PATH}/${RTAI_DIR}; then
-	echo "  rtai  : ${RTAI_DIR} revision not available"
-	echo "  patch : ${RTAI_PATCH}"
+	echo "  rtai       : ${RTAI_DIR} revision not available"
+	echo "  patch      : ${RTAI_PATCH}"
     else
-	echo "  rtai  : not available"
+	echo "  rtai       : not available"
     fi
     if test -f ${LOCAL_SRC_PATH}/newlib/src/revision.txt; then
-	echo "  newlib: git from $(cat ${LOCAL_SRC_PATH}/newlib/src/revision.txt)"
+	echo "  newlib     : git from $(cat ${LOCAL_SRC_PATH}/newlib/src/revision.txt)"
     elif test -f ${LOCAL_SRC_PATH}/newlib/revision.txt; then
-	echo "  newlib: git from $(cat ${LOCAL_SRC_PATH}/newlib/revision.txt)"
+	echo "  newlib     : git from $(cat ${LOCAL_SRC_PATH}/newlib/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/newlib; then
-	echo "  newlib: revision not available"
+	echo "  newlib     : revision not available"
     else
-	echo "  newlib: not available"
+	echo "  newlib     : not available"
     fi
     if test -f ${LOCAL_SRC_PATH}/comedi/revision.txt; then
-	echo "  comedi: git from $(cat ${LOCAL_SRC_PATH}/comedi/revision.txt)"
+	echo "  comedi     : git from $(cat ${LOCAL_SRC_PATH}/comedi/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/comedi; then
-	echo "  comedi: revision not available"
+	echo "  comedi     : revision not available"
     else
-	echo "  comedi: not available"
+	echo "  comedi     : not available"
     fi
     if test -f ${LOCAL_SRC_PATH}/comedilib/revision.txt; then
-	echo "  comedilib: git from $(cat ${LOCAL_SRC_PATH}/comedilib/revision.txt)"
+	echo "  comedilib  : git from $(cat ${LOCAL_SRC_PATH}/comedilib/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/comedilib; then
-	echo "  comedilib: revision not available"
+	echo "  comedilib  : revision not available"
     else
-	echo "  comedilib: not available"
+	echo "  comedilib  : not available"
     fi
     if test -f ${LOCAL_SRC_PATH}/comedicalib/revision.txt; then
 	echo "  comedicalib: git from $(cat ${LOCAL_SRC_PATH}/comedicalib/revision.txt)"
@@ -1753,11 +1753,28 @@ function test_save {
 	    TN=latency
 	    TEST_RESULTS=results-$TD-$TN.dat
 	    if test -f "$TEST_RESULTS"; then
-		N_DATA=$(grep RTD results-${TESTMODE}-latency.dat | wc -l)
+		N_DATA=$(grep RTD "$TEST_RESULTS" | wc -l)
 		LINE=20
 		test "$N_DATA" -lt 60 && LINE=10
 		test "$N_DATA" -lt 20 && LINE=1
-		awk -F '\\|[ ]*' "/RTD/ { if ( nd == $LINE ) ors0=\$7; if ( nd >= $LINE ) { d=\$5-\$2; sum+=d; sumsq+=d*d; n++; if ( maxd<d ) maxd=d; if (ors<\$7) ors=\$7}} END {if (n>0) printf( \"%7.0f| %7.0f| %7.0f| %5d| %7d| \", maxd, sum/n, sqrt(sumsq/n-(sum/n)*(sum/n)), n, ors-ors0 ) }" "$TEST_RESULTS"
+		awk -F '\\|[ ]*' "/RTD/ {
+                    nd++
+                    if ( nd == $LINE )
+                        ors0=\$7
+                    if ( nd >= $LINE ) {
+                        d=\$5-\$2
+                        sum+=d
+                        sumsq+=d*d
+                        n++
+                        if ( maxd<d )
+                            maxd=d
+                        if (ors<\$7)
+                            ors=\$7
+                    } }
+                END { if ( n > 0 ) {
+                        mean = sum/n
+                        printf( \"%7.0f| %7.0f| %7.0f| %5d| %7d| \", maxd, mean, sqrt(sumsq/n-mean*mean), n, ors-ors0 )
+                    } }" "$TEST_RESULTS"
 	    elif [[ $TESTED == *${T}* ]]; then
 		printf "%7s| %7s| %7s| %5s| %7s| " "o" "o" "o" "o" "o"
 	    else
@@ -1775,7 +1792,13 @@ function test_save {
 	    TN=preempt
 	    TEST_RESULTS=results-$TD-$TN.dat
 	    if test -f "$TEST_RESULTS"; then
-		awk '{if ($1 == "RTD|") { maxd=$4-$2; jfast=$5; jslow=$6; }} END { printf( "%9.0f| %9.0f| %9.0f| ", maxd, jfast, jslow ) }' "$TEST_RESULTS"
+		awk -F '\\|[ ]*' '/RTD/ { 
+                    maxd=$4-$2
+                    jfast=$5
+                    jslow=$6 }
+                END { 
+                    printf( "%9.0f| %9.0f| %9.0f| ", maxd, jfast, jslow ) 
+                }' "$TEST_RESULTS"
 	    elif [[ $TESTED == *${T}* ]]; then
 		printf "%9s| %9s| %9s| " "o" "o" "o"
 	    else

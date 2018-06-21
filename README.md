@@ -1,5 +1,16 @@
 # makertai
-Creating and testing an RTAI patched linux kernel.
+Building and testing RTAI-patched linux kernels.
+
+- `makertaikernel.sh`: bash-script for building and testing RTAI-patched linux kernels
+- `testreport.py`: python script for analyzing and summarizing test
+  reports produced by the `makertaikernel.sh` script (work in progress).
+- `alive.sh`: script producing some output on your console to
+  indicate that the machine is still alive.
+- `cpulatency`: kernel module for setting CPU latencies to zero via the PM-QoS kernel 
+  interface.
+- `poll`: kernel module intended to poll on a single CPU to keep it in C0 state 
+  (not working yet).
+
 
 ## Content
 - [Install an RTAI-patched linux kernel][quickinstall]
@@ -14,9 +25,16 @@ The `makertaikernel.sh` script executes all the commands needed to
 download and build an RTAI-patched linux kernel, the newlib library
 (needed for math support), and the RTAI and comedi kernel modules.
 
-The script is so far only used and tested on debian based systems and
-is likely to fail on other Linux distributions. Feel free to adapt the
-script to your Linux distribution.
+Check
+```
+./makertaikernel.sh help
+```
+for an overview.
+
+The script is so far only used and tested on debian/ubuntu based
+systems and is likely to fail on other Linux distributions. Feel free
+to adapt the script to your Linux distribution; in particular check
+the `setup_*` functions.
 
 
 ### Preparations
@@ -36,7 +54,7 @@ When you use `makertaikernel.sh` for the first time, then follow these instructi
    ```
    In particular the RTAI source, i.e. the value assinged to the `RTAI_DIR` variable.
    
-   If you want to change the RTAI source then open the configuration
+   If you want to change the RTAI source, then open the configuration
    file `makertaikernel.cfg` in your favourite text editor and select
    an RTAI source by modifying the value assinged to the `RTAI_DIR`
    variable.  See comments in the configuration file for options.
@@ -53,7 +71,10 @@ When you use `makertaikernel.sh` for the first time, then follow these instructi
    This command ends with showing you the RTAI kernel patches
    available for your machine.
 
-5. Select a Linux kernel and the corresponding RTAI patch from the displayed list.
+
+### Building the first kernel
+
+1. Select a Linux kernel and the corresponding RTAI patch from the displayed list.
 
    Modify the variables `LINUX_KERNEL`, `RTAI_PATCH`, and
    `KERNEL_PATH` variables in the `makertaikernel.cfg` configuration
@@ -67,7 +88,7 @@ When you use `makertaikernel.sh` for the first time, then follow these instructi
    sudo ./makertaikernel.sh info rtai
    ```
 
-6. You should start out with a kernel
+2. You should start out with a kernel
    configuration of a kernel image from your linux distribution
    closest to the kernel version you selected. On a Debian-based
    system install a matching kernel by executing
@@ -103,7 +124,7 @@ When you use `makertaikernel.sh` for the first time, then follow these instructi
    localmodconfig is not applied, resulting in a much larger kernel
    (takes much more time to compile - about one full hour or more).
 
-7. Once you booted into the kernel on which you want to base your RTAI
+3. Once you booted into the kernel on which you want to base your RTAI
    kernel run
    ```
    sudo ./makertaikernel.sh
@@ -117,39 +138,14 @@ When you use `makertaikernel.sh` for the first time, then follow these instructi
    on which the kernel configuration should be based (see
    `makertaikernel.sh help` for details).
 
-8. You will get the menu for configuring the kernel. You need to
+4. You will get the menu for configuring the kernel. You need to
    change a few settings to get a running RTAI-patched kernel. See the
    next section [Basic kernel configuration][basickernelconfiguration] for instructions.
 
-9. Reboot into the new kernel by executing
+5. Reboot into the new kernel by executing
    ```
    ./makertaikernel.sh reboot
    ```
-
-10. Test and improve your RTAI kernel as described in sections
-    [Testing the RTAI-patched kernel][testrtai] and [Improve the
-    RTAI-patched kernel][configurekernel] below.
-   
-11. If you did not start out with a kernel version matching the version
-    of your RTAI-patched kernel, and you are going to change the kernel
-    configuration, then you should run
-    ```
-    sudo ./makertaikernel.sh -c mod
-    ```
-    in order to deselect all unused kernel modules from compilation.
-    This speeds up the following kernel builds dramatically! Reboot
-    into the new kernel.
-
-For further options of the `makertaikernel.sh` script see
-```
-./makertaikernel.sh help
-```
-
-For example, to show some information about your machine, RTAI patches, grub menue, etc. run
-```
-./makertaikernel.sh info
-```
-
 
 ### Basic kernel configuration
 For making the Linux kernel work with RTAI you should check the following settings 
@@ -186,6 +182,23 @@ Leave the configuration dialog by pressing "Exit" until you are asked "Save kern
 Select "Yes".
 
 Then the new kernel is being compiled - be patient.
+
+
+### Testing and improving
+
+1. Test and improve your RTAI kernel as described in sections
+   [Testing the RTAI-patched kernel][testrtai] and [Improve the
+   RTAI-patched kernel][configurekernel] below.
+   
+2. If you did not start out with a kernel version matching the version
+   of your RTAI-patched kernel, and you are going to change the kernel
+   configuration, then you should run
+   ```
+   sudo ./makertaikernel.sh -c mod
+   ```
+   in order to deselect all unused kernel modules from compilation.
+   This speeds up the following kernel builds dramatically! Reboot
+   into the new kernel.
 
 
 ## Testing the RTAI-patched kernel
