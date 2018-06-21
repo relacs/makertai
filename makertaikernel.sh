@@ -1729,6 +1729,7 @@ function test_save {
     REPORT="$2"
     TESTED="$3"
     PROGRESS="$4"
+    HARDWARE="$5"
     {
 	# summary analysis of test results:
 	echo "Test summary (in nanoseconds):"
@@ -1848,7 +1849,7 @@ function test_save {
 	done
 	print_kernel_info
 	echo
-	if lshw -version &> /dev/null; then
+	if test "x$HARDWARE" == "xhardware" && lshw -version &> /dev/null; then
 	    echo "Hardware (lshw):"
 	    lshw | sed '1d'
 	    echo
@@ -2036,7 +2037,7 @@ function test_kernel {
 
     # limit global CPU latency:
     if $LATENCY; then
-	if test -f /dev/cpu_dma_latency; then
+	if test -c /dev/cpu_dma_latency; then
 	    echo_log "Write zero to /dev/cpu_dma_latency ."
 	    NAME="${NAME}-nolatency"
 	    exec 5> /dev/cpu_dma_latency
@@ -2309,7 +2310,7 @@ function test_kernel {
     fi
     if test "$RESULT" != n; then
 	REPORT="${REPORT_NAME}-${RESULT}"
-	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" hardware
 	echo_log
 	echo_log "saved kernel configuration in : config-$REPORT"
 	echo_log "saved test results in         : latencies-$REPORT"

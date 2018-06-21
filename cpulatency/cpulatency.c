@@ -20,15 +20,10 @@ module_param( cpu_id, int, S_IRUSR | S_IRGRP | S_IROTH );
 MODULE_PARM_DESC( cpu_id, "Id of CPU on which latencies should be set to zero" );
 
 
-/*
-since 2.6.28: cpumask_var_t with cpumask_test_cpu( i, cpu_isolated_map )
-until 2.6.28: cpumask_t with cpu_isset( i, cpu_isolated_map )
-before 4.1: cpu_isolated_map not extern! Try compiling RTAI with a pre 4.0 kernel!!!
- */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
-//  extern unsigned long cpu_isolated_map;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
+extern unsigned long cpu_isolated_map;  // symbol is exported by RTAI patch
 #else
-  extern cpumask_var_t cpu_isolated_map;
+extern cpumask_var_t cpu_isolated_map;
 #endif
 int isolatedCPUId = -1;
 
@@ -36,7 +31,9 @@ int isolatedCPUId = -1;
 static struct pm_qos_request cpu_dma_latency_req;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
+#ifdef CONFIG_PM
 static struct dev_pm_qos_request cpu_resume_latency_req;  // since 3.2
+#endif
 #endif
 
 
@@ -49,8 +46,8 @@ static int __init init_cpulatency( void )
     // find first isolated cpu:
 #ifdef CONFIG_SMP
     for ( i=0; i<NR_CPUS; i++ ) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
-      if ( 0 ) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
+      if ( cpu_isolated_map & (1<<i) ) {
 #else
       if ( cpumask_test_cpu( i, cpu_isolated_map ) ) {
 #endif
@@ -65,12 +62,14 @@ static int __init init_cpulatency( void )
       printk( KERN_INFO "cpulatency: no isolated CPU\n");
   }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0)
+    cpu_id = -2;
+#else
 #ifndef CONFIG_PM
     /*  Device specific PM QoS only implemented for CONFIG_PM enabled:
 	"Device power management core functionality" */
     cpu_id = -2;
-#elseif LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0)
-    cpu_id = -2;
+#endif
 #endif
 
   if ( cpu_id < 0 ) {
@@ -79,6 +78,7 @@ static int __init init_cpulatency( void )
     printk( KERN_INFO "cpulatency: set latency of all CPUs to zero\n" );
     printk( KERN_INFO "cpulatency: CPU=all\n" );
     /* This is equivalent to what the /dev/cpu_dma_latency file does! */
+    return 0;
   }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
