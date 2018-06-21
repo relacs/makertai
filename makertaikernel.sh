@@ -1757,7 +1757,7 @@ function test_save {
 		LINE=20
 		test "$N_DATA" -lt 60 && LINE=10
 		test "$N_DATA" -lt 20 && LINE=1
-		awk "{if (\$1 == 'RTD|') { if ( nd == $LINE ) {ors0=\$7}; if ( nd >= $LINE ) { d=\$5-\$2; sum+=d; sumsq+=d*d; n++; if ( maxd<d ) maxd=d; if (ors<\$7) ors=\$7}}} END {if (n>0) printf( \"%7.0f| %7.0f| %7.0f| %5d| %7d| \", maxd, sum/n, sqrt(sumsq/n-(sum/n)*(sum/n)), n, ors-ors0 ) }" "$TEST_RESULTS"
+		awk -F '\\|[ ]*' "/RTD/ { if ( nd == $LINE ) ors0=\$7; if ( nd >= $LINE ) { d=\$5-\$2; sum+=d; sumsq+=d*d; n++; if ( maxd<d ) maxd=d; if (ors<\$7) ors=\$7}} END {if (n>0) printf( \"%7.0f| %7.0f| %7.0f| %5d| %7d| \", maxd, sum/n, sqrt(sumsq/n-(sum/n)*(sum/n)), n, ors-ors0 ) }" "$TEST_RESULTS"
 	    elif [[ $TESTED == *${T}* ]]; then
 		printf "%7s| %7s| %7s| %5s| %7s| " "o" "o" "o" "o" "o"
 	    else
@@ -2032,9 +2032,10 @@ function test_kernel {
 	    make clean
 	    make
 	    CPU_ID=""
-	    test -n "$CPUIDS" && CPU_ID="cpu_id=$CPU_IDS"
-	    if insmod cpulatency $CPU_ID; then
-		CPU_ID=$(grep cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
+	    test -n "$CPUIDS" && CPU_ID="cpu_id=$CPUIDS"
+	    if insmod cpulatency.ko $CPU_ID; then
+		sleep 1
+		CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
 		case CPU_ID in
 		    all ) 
 			NAME="${NAME}-nocpulatency"
@@ -2257,7 +2258,7 @@ function test_kernel {
 	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
 	done
 	echo_kmsg "TESTS DONE"
-	echo_log "finished all tests"
+	echo_log "finished all tests for $NAME"
 	echo_log
     fi
 
