@@ -1,6 +1,10 @@
 *~
 makertaikernel.cfg
 makertaikernel.log
+*.mrk
+config-*
+latencies-*-*
+
 *.*.cmd
 .tmp_versions/
 Module.symvers
@@ -8,5 +12,3 @@ Module.symvers
 *.ko
 *.o
 modules.order
-#latencies-*-*
-#config-*-*

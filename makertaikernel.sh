@@ -1323,20 +1323,21 @@ function config_kernel {
 	    else
 		KCF="$KERNEL_CONFIG"
 	    fi
-	    if test -f "$WORKING_DIR/$KCF"; then
+	    test "x${KCF:0:1}" !=  "x/" && KCF="$WORKING_DIR/$KCF"
+	    if test -f "$KCF"; then
 		echo_log "Use ${BKP}configuration from \"$KCF\" and run olddefconfig."
 		if ! $DRYRUN; then
-		    cp "$WORKING_DIR/$KCF" .config
+		    cp "$KCF" .config
 		    make olddefconfig
 		fi
 	    else
-		echo_log "Unknown kernel configuration file \"$WORKING_DIR/$KCF\"."
+		echo_log "Unknown kernel configuration file \"$KCF\"."
 		return 1
 	    fi
 	fi
 
 	if $RUN_LOCALMOD; then
-	    if test ${CURRENT_KERNEL%.*} = ${LINUX_KERNEL%.*} ; then
+	    if test "x$(echo $CURRENT_KERNEL | cut -f 1,2 -d '.')" = "x$(echo $LINUX_KERNEL | cut -f 1,2 -d '.')" ; then
 		echo_log "Run make localmodconfig"
 		if ! $DRYRUN; then
 		    yes "" | make localmodconfig
