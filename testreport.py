@@ -231,8 +231,8 @@ for filename in args.file:
     
         # dissect filename:
         cols = filename.split('-')
-        kernel = '-'.join(cols[1:4])
-        host = cols[4]
+        kernel = '-'.join(cols[2:5])
+        host = cols[1]
         num = cols[5]
         date = '-'.join(cols[6:9])
         param = '-'.join(cols[9:])
