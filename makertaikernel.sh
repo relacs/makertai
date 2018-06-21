@@ -1924,8 +1924,8 @@ function test_kernel {
 	    net) LOADMODE="$LOADMODE net" ;;
 	    full) LOADMODE="cpu io mem net" ;;
 	    cpu=*) CPUIDS="${1#cpu=}" ;;
-	    latency) LATENCY=true; CPULATENCY=false ;;
 	    cpulatency) CPULATENCY=true; LATENCY=false ;;
+	    latency) LATENCY=true; CPULATENCY=false ;;
 	    [0-9]*) TEST_TIME="$((10#$1))" ;;
 	    auto) shift; test -n "$1" && { DESCRIPTION="$1"; TESTSPECS="$TESTSPECS $1"; } ;;
 	    batch) shift; test_batch "$1" "$TEST_TIME" "$TESTMODE" ${TESTSPECS% batch} ;;
@@ -2014,10 +2014,12 @@ function test_kernel {
     # limit global CPU latency:
     if $LATENCY; then
 	if test -f /dev/cpu_dma_latency; then
+	    echo_log "Write zero to /dev/cpu_dma_latency ."
 	    NAME="${NAME}-nolatency"
 	    exec 5> /dev/cpu_dma_latency
 	    echo -n -e "\x00\x00\x00\x00" >&5
 	else
+	    echo_log "File /dev/cpu_dma_latency does not exist."
 	    LATENCY=false
 	fi
     fi
@@ -2025,6 +2027,7 @@ function test_kernel {
     # limit CPU latency via PM QoS:
     if $CPULATENCY; then
 	if test -d cpulatency; then
+	    echo_log "Build and insmod cpulatency kernel module."
 	    cd cpulatency
 	    make clean
 	    make
@@ -2033,12 +2036,21 @@ function test_kernel {
 	    if insmod cpulatency $CPU_ID; then
 		CPU_ID=$(grep cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
 		case CPU_ID in
-		    all ) NAME="${NAME}-nocpulatency" ;;
-		    none ) ;;
-		    *) NAME="${NAME}-nocpulatency${CPU_ID}" ;;
+		    all ) 
+			NAME="${NAME}-nocpulatency"
+			echo_log "Set latency of all CPUs to zero via cpulatency kernel module."
+			;;
+		    none ) 
+			echo_log "Failed to set latency of CPUs via cpulatency kernel module."
+			;;
+		    *) 
+			NAME="${NAME}-nocpulatency${CPU_ID}"
+			echo_log "Set latency of CPU ${CPU_ID} to zero via cpulatency kernel module."
+			;;
 		esac 
 	    else
 		CPULATENCY=false
+		echo_log "Inserting cpulatency kernel module failed."
 	    fi
 	    cd - > /dev/null
 	else
@@ -2293,12 +2305,13 @@ function test_kernel {
 
     # restore global CPU latency:
     if $LATENCY; then
-	# close /dev/cpu_dma_latency file:
+	echo_log "Close /dev/cpu_dma_latency file."
 	exec 5>&-
     fi
 
     # restore CPU latency via PM QoS:
     if $CPULATENCY; then
+	echo_log "Remove cpulatency kernel module."
 	rmmod cpulatency
     fi
 
