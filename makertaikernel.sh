@@ -262,7 +262,7 @@ Test the performance of the rtai-patched linux kernel.
 Usage:
 
 sudo ${MAKE_RTAI_KERNEL} [-d] [-n xxx] [-r xxx] [-k xxx] test [[hal|sched|math|comedi] [calib]
-     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [latency|cpulatency]
+     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [latency|cpulatency|cpulatencyall]
      [<NNN>] [auto <XXX> | batch clocks|cstates|acpi|isolcpus|dma|poll|<FILE>]]
 
 EOF
@@ -309,6 +309,8 @@ Further options specify further conditions for running the tests:
   cpulatency   : Using PM QoS request to keep CPUs in C0 state. If a CPU was specified for 
                  running the tests (cpu=<CPUIDS> parameter), only that CPU is put into C0, 
                  if possible. Uses the cpulatency kernel module.
+  cpulatencyall: Using PM QoS request to keep all CPUs in C0 state.
+                 Uses the cpulatency kernel module.
 
 The rtai tests need to be terminated by pressing ^C and a string
 describing the test scenario needs to be provided. This can be
@@ -341,10 +343,10 @@ In a batch FILE
   describes a configuration to be tested:
   <descr> is a one-word string describing the kernel parameter 
     (a description of the load settings is added automatically to the description)
-  <load/cpus/latency/cpulatency> defines the load processes to be
+  <load/cpus/latency/cpulatency/cpulatencyall> defines the load processes to be
     started before testing (cpu io mem net full, see above), the CPUs
     on which the test should be run (cpu=<CPUIDS>, see above), and/or
-    whether CPUs should be kept in C0 state (latency or cpulatency, see above).
+    whether CPUs should be kept in C0 state (latency, cpulatency, or cpulatencyall, see above).
   <param> is a list of kernel parameter to be used.
 - a line of the format
   <descr> : CONFIG : <file>
@@ -1925,6 +1927,7 @@ function test_kernel {
     CPUIDS=""
     LATENCY=false
     CPULATENCY=false
+    CPULATENCYALL=true
     MAXMODULE="4"
     CALIBRATE="false"
     DESCRIPTION=""
@@ -1949,7 +1952,8 @@ function test_kernel {
 	    net) LOADMODE="$LOADMODE net" ;;
 	    full) LOADMODE="cpu io mem net" ;;
 	    cpu=*) CPUIDS="${1#cpu=}" ;;
-	    cpulatency) CPULATENCY=true; LATENCY=false ;;
+	    cpulatency) CPULATENCY=true; CPULATENCYALL=false; LATENCY=false ;;
+	    cpulatencyall) CPULATENCY=true; CPULATENCYALL=true; LATENCY=false ;;
 	    latency) LATENCY=true; CPULATENCY=false ;;
 	    [0-9]*) TEST_TIME="$((10#$1))" ;;
 	    auto) shift; test -n "$1" && { DESCRIPTION="$1"; TESTSPECS="$TESTSPECS $1"; } ;;
@@ -1987,6 +1991,7 @@ function test_kernel {
 	echo "  CPU ids                  : $CPUIDS"
 	echo "  Limit global CPU latency : $LATENCY"
 	echo "  Limit CPU latency via QoS: $CPULATENCY"
+	echo "            ... on all CPUs: $CPULATENCYALL"
 	echo "  rtai_sched parameter     : $RTAI_SCHED_PARAM"
 	echo "  rtai_hal parameter       : $RTAI_HAL_PARAM"
 	echo "  description              : $DESCRIPTION"
@@ -2057,7 +2062,7 @@ function test_kernel {
 	    make clean
 	    make
 	    CPU_ID=""
-	    test -n "$CPUIDS" && CPU_ID="cpu_id=$CPUIDS"
+	    ! $CPULATENCIESALL && test -n "$CPUIDS" && CPU_ID="cpu_id=$CPUIDS"
 	    if insmod cpulatency.ko $CPU_ID; then
 		sleep 1
 		CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
