@@ -2073,7 +2073,7 @@ function test_kernel {
 	    make clean
 	    make
 	    CPU_ID=""
-	    ! $CPULATENCIESALL && test -n "$CPUIDS" && CPU_ID="cpu_id=${CPUIDS%%,*}"
+	    ! $CPULATENCYALL && test -n "$CPUIDS" && CPU_ID="cpu_id=${CPUIDS%%,*}"
 	    if insmod cpulatency.ko $CPU_ID; then
 		sleep 1
 		CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
@@ -2332,6 +2332,10 @@ function test_kernel {
     if $CPULATENCY; then
 	echo_log "Remove cpulatency kernel module."
 	rmmod cpulatency
+	# clean because me made it as root:
+	cd cpulatency
+	make clean
+	cd - > /dev/null
     fi
 
     # restore CPU freq governor:
