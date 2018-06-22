@@ -261,7 +261,8 @@ Test the performance of the rtai-patched linux kernel.
 Usage:
 
 sudo ${MAKE_RTAI_KERNEL} [-d] [-n xxx] [-r xxx] [-k xxx] test [[hal|sched|math|comedi] [calib]
-     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] [cpu=<CPUIDS>] [latency|cpulatency|cpulatencyall]
+     [kern|kthreads|user|all|none] [cpu|io|mem|net|full] 
+     [cpu=<CPUIDS>] [latency|cpulatency|cpulatencyall] [performance]
      [<NNN>] [auto <XXX> | batch clocks|cstates|acpi|isolcpus|dma|poll|<FILE>]]
 
 EOF
@@ -310,6 +311,7 @@ Further options specify further conditions for running the tests:
                  if possible. Uses the cpulatency kernel module.
   cpulatencyall: Using PM QoS request to keep all CPUs in C0 state.
                  Uses the cpulatency kernel module.
+  performance  : Sets the cpu freq scaling governor to performance, i.e. to the maximum frequency.
 
 The rtai tests need to be terminated by pressing ^C and a string
 describing the test scenario needs to be provided. This can be
@@ -338,14 +340,15 @@ In a batch FILE
 - everything behind a hash ('#') is a comment that is completely ignored
 - empty lines are ignored
 - a line of the format
-  <descr> : <load/cpus> : <params>
+  <descr> : <specs> : <params>
   describes a configuration to be tested:
   <descr> is a one-word string describing the kernel parameter 
     (a description of the load settings is added automatically to the description)
-  <load/cpus/latency/cpulatency/cpulatencyall> defines the load processes to be
-    started before testing (cpu io mem net full, see above), the CPUs
-    on which the test should be run (cpu=<CPUIDS>, see above), and/or
-    whether CPUs should be kept in C0 state (latency, cpulatency, or cpulatencyall, see above).
+  <specs> defines the load processes to be
+    started before testing (cpu io mem net full, see above), the CPU
+    on which the test should be run (cpu=<CPUIDS>, see above),
+    whether CPUs should be kept in C0 state (latency, cpulatency, or cpulatencyall, see above),
+    and/or whether the CPU frequency should be maximized (performance, see above).
   <param> is a list of kernel parameter to be used.
 - a line of the format
   <descr> : CONFIG : <file>
@@ -737,6 +740,7 @@ function print_cpus {
 	test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
 	CPUFREQGOVERNOR="-"
 	test -f $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
+	# frequency statistics needs CONFIG_CPU_FREQ_STAT:
 	CPUFREQTRANS="n.a."
 	test -r $CPU/cpufreq/stats/total_trans && CPUFREQTRANS=$(cat $CPU/cpufreq/stats/total_trans)
 	printf "  cpu%-2d  %6d  %4d  %6d  %8.3f  %12s  %11s" ${CPU#/sys/devices/system/cpu/cpu} $(cat $CPUT/physical_package_id) $(cat $CPUT/core_id) $ONLINE $CPUFREQ $CPUFREQGOVERNOR $CPUFREQTRANS
@@ -750,7 +754,11 @@ function print_cpus {
     done
     echo
 
-    echo "CPU idle and boost (/sys/devices/system/cpu/{cpuidle,cpufreq}):"
+    echo "CPU frequency scaling, idle, and boost (/sys/devices/system/cpu/{cpuidle,cpufreq}):"
+    CPU_FREQ="no"
+    if test -r /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver; then
+	CPU_FREQ="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver)"
+    fi
     CPU_IDLE="no"
     if test -r /sys/devices/system/cpu/cpuidle/current_driver; then
 	CPU_IDLE="$(cat /sys/devices/system/cpu/cpuidle/current_driver)"
@@ -759,6 +767,7 @@ function print_cpus {
     if test -f /sys/devices/system/cpu/cpufreq/boost; then
 	CPU_BOOST="$(cat /sys/devices/system/cpu/cpufreq/boost)"
     fi
+    echo "  scaling driver : $CPU_FREQ"
     echo "  cpuidle driver : $CPU_IDLE"
     echo "  boost          : $CPU_BOOST"
     echo
@@ -774,7 +783,7 @@ function print_cpus {
     test -r $CPU/cpufreq/scaling_max_freq && MAXCPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_max_freq)/1000000.0 | bc)
 
     echo "CPU (/proc/cpuinfo):"
-    echo "  $(grep "model name" /proc/cpuinfo | awk -F '\t:' 'NR==1 { printf "%-17s : %s", $1, $2}')"
+    echo "  $(grep "model name" /proc/cpuinfo | awk -F '\t:[ ]*' 'NR==1 { printf "%-17s : %s", $1, $2}')"
     echo "  number of CPUs    : $CPU_NUM"
     test "MAXCPUFREQ" != "n.a." && echo "  max CPU frequency : $MAXCPUFREQ MHz"
     echo "  CPU family        : $(grep "cpu family" /proc/cpuinfo | awk 'NR==1 { print $4}')"
@@ -786,7 +795,7 @@ function print_cpus {
 function print_distribution {
     if lsb_release &> /dev/null; then
 	echo "Distribution (lsb_release -a):"
-	lsb_release -a 2> /dev/null | indent
+	lsb_release -a 2> /dev/null | awk -F ':[ \t]*' '{printf("%-15s: %s\n", $1, $2)}' | indent
     else
 	echo "Distribution: unknown"
     fi
@@ -1839,7 +1848,7 @@ function test_save {
 	    echo
 	fi
 	echo "rtai-info reports:"
-	${REALTIME_DIR}/bin/rtai-info
+	${REALTIME_DIR}/bin/rtai-info | sed -e '1,3d; 5d' | indent
 	echo
 	echo "dmesg:"
 	echo
@@ -1909,6 +1918,7 @@ function test_kernel {
     LATENCY=false
     CPULATENCY=false
     CPULATENCYALL=true
+    CPUGOVERNOR=false
     MAXMODULE="4"
     CALIBRATE="false"
     DESCRIPTION=""
@@ -1936,6 +1946,7 @@ function test_kernel {
 	    cpulatency) CPULATENCY=true; CPULATENCYALL=false; LATENCY=false ;;
 	    cpulatencyall) CPULATENCY=true; CPULATENCYALL=true; LATENCY=false ;;
 	    latency) LATENCY=true; CPULATENCY=false ;;
+	    performance) CPUGOVERNOR=true ;;
 	    [0-9]*) TEST_TIME="$((10#$1))" ;;
 	    auto) shift; test -n "$1" && { DESCRIPTION="$1"; TESTSPECS="$TESTSPECS $1"; } ;;
 	    batch) shift; test_batch "$1" "$TEST_TIME" "$TESTMODE" ${TESTSPECS% batch} ;;
@@ -1973,6 +1984,7 @@ function test_kernel {
 	echo "  Limit global CPU latency : $LATENCY"
 	echo "  Limit CPU latency via QoS: $CPULATENCY"
 	echo "            ... on all CPUs: $CPULATENCYALL"
+	echo "  Set CPU freq governor    : $CPUGOVERNOR"
 	echo "  rtai_sched parameter     : $RTAI_SCHED_PARAM"
 	echo "  rtai_hal parameter       : $RTAI_HAL_PARAM"
 	echo "  description              : $DESCRIPTION"
@@ -2022,6 +2034,18 @@ function test_kernel {
 	NAME="$DESCRIPTION"
     fi
 
+    # unload already loaded comedi kernel modules:
+    remove_comedi_modules
+    # unload already loaded rtai kernel modules:
+    for MOD in msg mbx sem math sched hal; do
+	lsmod | grep -q rtai_$MOD && { rmmod rtai_$MOD && echo_log "removed already loaded rtai_$MOD"; }
+    done
+
+    echo_log
+    TESTED=""
+    PROGRESS=""
+    echo_kmsg "START TESTS"
+
     # limit global CPU latency:
     if $LATENCY; then
 	if test -c /dev/cpu_dma_latency; then
@@ -2043,7 +2067,7 @@ function test_kernel {
 	    make clean
 	    make
 	    CPU_ID=""
-	    ! $CPULATENCIESALL && test -n "$CPUIDS" && CPU_ID="cpu_id=$CPUIDS"
+	    ! $CPULATENCIESALL && test -n "$CPUIDS" && CPU_ID="cpu_id=${CPUIDS%%,*}"
 	    if insmod cpulatency.ko $CPU_ID; then
 		sleep 1
 		CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
@@ -2070,6 +2094,25 @@ function test_kernel {
 	fi
     fi
 
+    # set CPU freq governor:
+    if $CPUGOVERNOR; then
+	GOVERNOR=""
+	SCALING_GOVERNOR="/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+	CPU_ID=0
+	test -n "$CPUIDS" && CPU_ID=${CPUIDS%%,*}
+	SCALING_GOVERNOR="/sys/devices/system/cpu/cpu${CPU_ID}/cpufreq/scaling_governor"
+	if test -r $SCALING_GOVERNOR; then
+	    echo_log "Set cpu freq performance governor for CPU ${CPU_ID} ."
+	    NAME="${NAME}-nolatency"
+	    GOVERNOR="$(cat $SCALING_GOVERNOR)"
+	    exec 6> $SCALING_GOVERNOR
+	    echo "performance" >&6
+	else
+	    echo_log "Cannot set cpu freq governor."
+	    CPUGOVERNOR=false
+	fi
+    fi
+
     # add CPU mask:
     if test -n "$CPUIDS"; then
 	NAME="${NAME}-cpu${CPUIDS%%,*}"
@@ -2085,20 +2128,9 @@ function test_kernel {
     else
 	NAME="${NAME}-idle"
     fi
+
     REPORT_NAME="${REPORT_NAME}-${NUM}-$(date '+%F')-${NAME}"
     REPORT="${REPORT_NAME}-failed"
-
-    # unload already loaded comedi kernel modules:
-    remove_comedi_modules
-    # unload already loaded rtai kernel modules:
-    for MOD in msg mbx sem math sched hal; do
-	lsmod | grep -q rtai_$MOD && { rmmod rtai_$MOD && echo_log "removed already loaded rtai_$MOD"; }
-    done
-    echo_log
-
-    TESTED=""
-    PROGRESS=""
-    echo_kmsg "START TESTS"
 
     # loading rtai kernel modules:
     RTAIMOD_FAILED=false
@@ -2268,9 +2300,6 @@ function test_kernel {
 	    PROGRESS="${PROGRESS}${TT}"
 	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
 	done
-	echo_kmsg "TESTS DONE"
-	echo_log "finished all tests for $NAME"
-	echo_log
     fi
 
     # clean up load:
@@ -2280,10 +2309,39 @@ function test_kernel {
     for FILE in ${LOAD_FILES[@]}; do
 	rm -f $FILE
     done
-    # clean up:
+
+    # clean up RTAI modules:
     for MOD in msg mbx sem math sched hal; do
 	lsmod | grep -q rtai_$MOD && { rmmod rtai_$MOD && echo_log "removed loaded rtai_$MOD"; }
     done
+
+    # restore global CPU latency:
+    if $LATENCY; then
+	echo_log "Close /dev/cpu_dma_latency file."
+	exec 5>&-
+    fi
+
+    # restore CPU latency via PM QoS:
+    if $CPULATENCY; then
+	echo_log "Remove cpulatency kernel module."
+	rmmod cpulatency
+    fi
+
+    # restore CPU freq governor:
+    if $CPUGOVERNOR; then
+	echo_log "Restore cpu freq performance governor to $GOVERNOR ."
+	echo "$GOVERNOR" >&6
+	exec 6>&-
+    fi
+
+    # restore CPU mask:
+    if test -n "$CPUIDS"; then
+	restore_rtai
+    fi
+
+    echo_kmsg "TESTS DONE"
+    echo_log "finished all tests for $NAME"
+    echo_log
     
     # report:
     rm -f config-$REPORT
@@ -2314,23 +2372,6 @@ function test_kernel {
     done
     rm -f load.dat
     rm -f lsmod.dat
-
-    # restore global CPU latency:
-    if $LATENCY; then
-	echo_log "Close /dev/cpu_dma_latency file."
-	exec 5>&-
-    fi
-
-    # restore CPU latency via PM QoS:
-    if $CPULATENCY; then
-	echo_log "Remove cpulatency kernel module."
-	rmmod cpulatency
-    fi
-
-    # restore CPU mask:
-    if test -n "$CPUIDS"; then
-	restore_rtai
-    fi
 }
 
 function test_batch {

@@ -680,7 +680,6 @@ disabling CPU power saving modes improves real-time performance
 dramatically. Before you try anything else do:
 - Add the kernel parameter `idle=poll` to disable C-state transitions completely.
   This is usually sufficient for a godd RTAI performance.
-.
 
 
 ### Hyperthreading
@@ -839,7 +838,11 @@ In "Power management and ACPI options":
 - In "CPU Idle":
   - Disable "CPU idle PM support" (`CPU_IDLE`)
 
-#### Disable power management only
+This disables all OS controlled powersavings on your CPU. But you
+certainly need to add the `idle=poll` kernel parameter to keep the CPU
+in C0 state at maximum frequency.
+
+#### Disable frequency scaling only
 Instead you can try to only disable
 in "Power management and ACPI options":
 - Disable "CPU Frequency scaling" (`CPU_FREQ`)
@@ -850,6 +853,12 @@ an polling idle loop, or write a zero to the `/dev/cpu_dma_latency`
 file (the DynamicClampAnalogInput plugin of RELACS can do that). This
 also keeps the CPU frequency at its maximum but makes the system run
 hot.
+
+Kernel parameter `intel_pstate=disable` disables intel_pstate as the default scaling driver.
+intel_pstate bypasses the cpufreq frequency governors (CONFIG_X86_INTEL_PSTATE).
+
+performance governor sets CPU frequency to the highes available one.
+
 
 #### Further aspects of power saving options
 Also check the BIOS for disabling CPU power management.
