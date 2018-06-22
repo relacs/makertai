@@ -1,5 +1,6 @@
 import sys
 import argparse
+import math as m
 import numpy as np
 
 class DataTable:
@@ -91,6 +92,17 @@ class DataTable:
             self.add_value(val, col)
             col = None
 
+    def fill_data(self):
+        # maximum rows:
+        r = 0
+        for c in range(len(self.data)):
+            if r < len(self.data[c]):
+                r = len(self.data[c])
+        # fill up:
+        for c in range(len(self.data)):
+            while len(self.data[c]) < r:
+                self.data[c].append(float('NaN'))
+
     def write(self, df):
         # retrieve column widths:
         widths = []
@@ -147,7 +159,11 @@ class DataTable:
                 if not first:
                     df.write(self.sep)
                 first = False
-                df.write(f % self.data[c][k])
+                if isinstance(self.data[c][k], float) and m.isnan(self.data[c][k]):
+                    fn = '%%%ds' % widths[c]
+                    df.write(fn % '-')
+                else:
+                    df.write(f % self.data[c][k])
             df.write('\n')
             
 
@@ -262,6 +278,7 @@ for filename in args.file:
                 # analyze preempt test:
                 #print np.mean(data[testmode, 'latency', 'latencies'])
                 pass
+        dt.fill_data()
 
 # write results:
 dt.adjust_columns()

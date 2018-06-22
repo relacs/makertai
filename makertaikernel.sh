@@ -2885,9 +2885,9 @@ function test_report {
 	SORTCOL=4
 	shift
     fi
-    FILES="latencies-${LINUX_KERNEL}-${RTAI_DIR}-*"
+    FILES="latencies-*"
     test -n "$1" && FILES="$*"
-    test -d "$FILES" && FILES="$FILES/latencies-${LINUX_KERNEL}-${RTAI_DIR}-*"
+    test -d "$FILES" && FILES="$FILES/latencies-*"
     rm -f header.txt data.txt dataoverrun.txt
     # column widths:
     COLWS=()
