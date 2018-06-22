@@ -36,7 +36,6 @@
 : ${RUN_LOCALMOD:=true}    # run make localmodconf after selecting a kernel configuration (disable with -l)
 : ${KERNEL_MENU:="menuconfig"} # the menu for editing the kernel configuration
                                # (menuconfig, gconfig, xconfig)
-: ${KERNEL_DEBUG:=false}   # generate debugable kernel (see man crash), set with -D
 
 : ${KERNEL_PARAM:="idle=poll"}      # kernel parameter to be passed to grub
 : ${KERNEL_PARAM_DESCR:="poll"}     # one-word description of KERNEL_PARAM 
@@ -437,7 +436,6 @@ EOF
         runnig kernel matches the selected kernel version (major.minor only).
 -l    : disable call to make localmodconf after a kernel configuration 
         has been selected via the -c switch (RUN_LOCALMOD=${RUN_LOCALMOD})
--D    : generate kernel package with debug symbols in addition (KERNEL_DEBUG=${KERNEL_DEBUG})
 -m    : enter the RTAI configuration menu
 
 Note: for running test batches, settings provided via the command line are lost after rebooting.
@@ -804,7 +802,6 @@ function print_settings {
     echo "  KERNEL_CONFIG   (-c) = $KERNEL_CONFIG"
     echo "  KERNEL_MENU          = $KERNEL_MENU"
     echo "  RUN_LOCALMOD    (-l) = $RUN_LOCALMOD"
-    echo "  KERNEL_DEBUG    (-D) = $KERNEL_DEBUG"
     echo "  KERNEL_PARAM         = $KERNEL_PARAM"
     echo "  KERNEL_PARAM_DESCR   = $KERNEL_PARAM_DESCR"
     echo "  BATCH_KERNEL_PARAM   = $BATCH_KERNEL_PARAM"
@@ -854,9 +851,6 @@ function print_config {
     echo "# Run localmodconfig on the kernel configuration to deselect"
     echo "# all kernel modules that are not currently used."
     echo "RUN_LOCALMOD=$RUN_LOCALMOD"
-    echo
-    echo "# Generate debug packe of the kernel (not tested...)?"
-    echo "KERNEL_DEBUG=$KERNEL_DEBUG"
     echo
     echo "# Default kernel parameter to be used when booting into the RTAI patched kernel:"
     echo "KERNEL_PARAM=\"$KERNEL_PARAM\""
@@ -1408,11 +1402,7 @@ function build_kernel {
 	    if $HAVE_MAKE_KPKG; then
 		KM=""
 		test -n "$KERNEL_MENU" && KM="--config $KERNEL_MENU"
-		if $KERNEL_DEBUG; then
-		    make-kpkg --initrd --append-to-version -${RTAI_DIR}${KERNEL_NUM} --revision 1.0 $KM kernel_image kernel_debug
-		else
-		    make-kpkg --initrd --append-to-version -${RTAI_DIR}${KERNEL_NUM} --revision 1.0 $KM kernel-image
-		fi
+		make-kpkg --initrd --append-to-version -${RTAI_DIR}${KERNEL_NUM} --revision 1.0 $KM kernel-image
 	    else
 		if test "$KERNEL_MENU" = "old"; then
 		    echo "Run make olddefconfig"
@@ -1458,8 +1448,6 @@ function install_kernel {
     cd "$KERNEL_PATH"
     KERNEL_PACKAGE=$(ls linux-image-${KERNEL_NAME}*.deb | tail -n 1)
     test -f "$KERNEL_PACKAGE" || KERNEL_PACKAGE=$(ls linux-image-${KERNEL_ALT_NAME}*.deb | tail -n 1)
-    KERNEL_DEBUG_PACKAGE=$(ls linux-image-${KERNEL_NAME}-dbg_*.deb | tail -n 1)
-    test -f "$KERNEL_DEBUG_PACKAGE" || KERNEL_DEBUG_PACKAGE=$(ls linux-image-${KERNEL_ALT_NAME}-dbg_*.deb | tail -n 1)
     if test -f "$KERNEL_PACKAGE"; then
 	echo_log "install kernel from debian package $KERNEL_PACKAGE"
 	if ! $DRYRUN; then
@@ -1467,13 +1455,6 @@ function install_kernel {
 		echo_log "Failed to install linux kernel from $KERNEL_PACKAGE !"
 		cd - &> /dev/null
 		return 1
-	    fi
-	    if $KERNEL_DEBUG; then
-		if ! dpkg -i "$KERNEL_DEBUG_PACKAGE"; then
-		    echo_log "Failed to install linux kernel from $KERNEL_DEBUG_PACKAGE !"
-		    cd - &> /dev/null
-		    return 1
-		fi
 	    fi
 	fi
     else
@@ -4671,10 +4652,6 @@ while test "x${1:0:1}" = "x-"; do
 	-l )
 	    shift
 	    RUN_LOCALMOD=false
-	    ;;
-	-D )
-	    shift
-	    KERNEL_DEBUG=true
 	    ;;
 	-m )
 	    shift
