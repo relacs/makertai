@@ -922,6 +922,7 @@ function print_config {
 }
 
 function print_kernel_info {
+    CPUDATA="$1"
     echo
     echo "Loaded modules (lsmod):"
     if test -f lsmod.dat; then
@@ -934,7 +935,11 @@ function print_kernel_info {
     print_interrupts
     print_distribution
     print_kernel
-    print_cpus
+    if test -z "$CPUDATA"; then
+	print_cpus
+    else
+	cat $CPUDATA
+    fi
     print_versions
     print_grub
     print_settings
@@ -1722,7 +1727,8 @@ function test_save {
     REPORT="$2"
     TESTED="$3"
     PROGRESS="$4"
-    HARDWARE="$5"
+    CPUDATA="$5"
+    HARDWARE="$6"
     {
 	# summary analysis of test results:
 	echo "Test summary (in nanoseconds):"
@@ -1840,7 +1846,7 @@ function test_save {
 		fi
 	    done
 	done
-	print_kernel_info
+	print_kernel_info $CPUDATA
 	echo
 	if test "x$HARDWARE" == "xhardware" && lshw -version &> /dev/null; then
 	    echo "Hardware (lshw):"
@@ -2285,20 +2291,21 @@ function test_kernel {
 	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
 
 	    test_run $DIR latency $TEST_TIME
+	    print_cpus > results-cpus.dat
 	    if test $DIR = ${TESTMODE%% *}; then
 		rm -f config-$REPORT
 		rm -f latencies-$REPORT
 		TEST_RESULT="$(test_result ${TESTMODE%% *})"
 		REPORT="${REPORT_NAME}-${TEST_RESULT}"
 	    fi
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat
 
 	    test_run $DIR switches $TEST_TIME
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat
 
 	    test_run $DIR preempt $TEST_TIME
 	    PROGRESS="${PROGRESS}${TT}"
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat
 	done
     fi
 
@@ -2355,7 +2362,7 @@ function test_kernel {
     fi
     if test "$RESULT" != n; then
 	REPORT="${REPORT_NAME}-${RESULT}"
-	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" hardware
+	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat hardware
 	echo_log
 	echo_log "saved kernel configuration in : config-$REPORT"
 	echo_log "saved test results in         : latencies-$REPORT"
@@ -2370,6 +2377,7 @@ function test_kernel {
 	    rm -f $TEST_RESULTS
 	done
     done
+    rm -f results-cpus.dat
     rm -f load.dat
     rm -f lsmod.dat
 }
