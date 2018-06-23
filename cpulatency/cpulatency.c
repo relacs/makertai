@@ -21,7 +21,7 @@ MODULE_PARM_DESC( cpu_id, "Id of CPU on which latencies should be set to zero" )
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
-extern unsigned long cpu_isolated_map;  // symbol is exported by RTAI patch
+//extern unsigned long cpu_isolated_map;  // symbol is exported by RTAI patch
 #else
 extern cpumask_var_t cpu_isolated_map;
 #endif
@@ -47,7 +47,8 @@ static int __init init_cpulatency( void )
 #ifdef CONFIG_SMP
     for ( i=0; i<NR_CPUS; i++ ) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
-      if ( cpu_isolated_map & (1<<i) ) {
+      if ( 0 ) {
+	//if ( cpu_isolated_map & (1<<i) ) {
 #else
       if ( cpumask_test_cpu( i, cpu_isolated_map ) ) {
 #endif

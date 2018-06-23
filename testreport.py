@@ -1,3 +1,7 @@
+# TODO
+# - testreport should extract CPU freq / governor / temperature / etc.
+
+
 import sys
 import argparse
 import math as m

@@ -716,11 +716,74 @@ function print_kernel {
     echo
 }
 
+function print_environment {
+    echo "Environment:"
+
+    # /dev/cpu_dma_latency:
+    if test "x$(id -u)" == "x0"; then
+	# if we are root we can show /dev/cpu_dma_latency:
+	if test -c /dev/cpu_dma_latency; then
+	    echo "  /dev/cpu_dma_latency: $(hexdump -e '"%d\n"' /dev/cpu_dma_latency)"
+	else
+	    echo "  /dev/cpu_dma_latency: -"
+	fi
+    fi
+
+    # cpulatency kernel module:
+    if lsmod | grep -q cpulatency; then
+	CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
+	echo "  cpulatency on cpu   : $CPU_ID"
+    else
+	echo "  cpulatency          : not loaded"
+    fi
+
+    # frequency scaling:
+    CPU_NUM=0
+    test -n "$1" && CPU_NUM=$1
+    CPU=/sys/devices/system/cpu/cpu${CPU_NUM}
+    CPUFREQGOVERNOR="-"
+    test -f $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
+    echo "  governor            : $CPUFREQGOVERNOR"
+    CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$(($CPU_NUM+1)) {print \$2}")
+    test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
+    echo "  cpu frequency       : $CPUFREQ"
+    if test -r $CPU/cpufreq/scaling_max_freq; then
+	CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_max_freq)/1000000.0 | bc)
+	echo "  max cpu frequency   : $CPUFREQ"
+    fi
+
+    echo
+}
+
+function store_cpus {
+    rm -f results-cpu?????.dat
+
+    # frequency statistics needs CONFIG_CPU_FREQ_STAT:
+    if test -r /sys/devices/system/cpu/cpu0/cpufreq/stats/total_trans; then
+	for CPU in /sys/devices/system/cpu/cpu[0-9]*; do
+	    cat $CPU/cpufreq/stats/total_trans
+	done > results-cpufreq${1}.dat
+    fi
+
+    CSTATEUSAGE="time" # "usage" or "time"
+    if test -r /sys/devices/system/cpu/cpu0/cpuidle/state0/name; then
+	for CPU in /sys/devices/system/cpu/cpu[0-9]*; do
+	    for CSTATE in $CPU/cpuidle/state*; do
+		echo -n "$(cat $CSTATE/$CSTATEUSAGE)  "
+	    done
+	    echo
+	done > results-cpuidle${1}.dat
+    fi
+}
+
 function print_cpus {
     echo "CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):"
+    # first header line:
     printf "CPU topology                   CPU frequency scaling              "
-    test -r /sys/devices/system/cpu/cpu0/cpuidle/state0/name && printf "  CPU idle states (enabled fraction%%)"
+    test -r /sys/devices/system/cpu/cpu0/cpuidle/state0/name && printf "  CPU idle states (disabled time-fraction%%)"
     printf "\n"
+
+    # second header line:
     printf "logical  socket  core  online  freq/MHz      governor  transitions"
     if test -f /sys/devices/system/cpu/cpu0/cpuidle/state0/name; then
 	for CSTATE in /sys/devices/system/cpu/cpu0/cpuidle/state*/name; do
@@ -728,7 +791,9 @@ function print_cpus {
 	done
     fi
     printf "\n"
-    CSTATEUSAGE="usage" # "usage" or "time"
+
+    # data:
+    store_cpus 1
     CPU_NUM=0
     for CPU in /sys/devices/system/cpu/cpu[0-9]*; do
 	let CPU_NUM+=1
@@ -740,14 +805,31 @@ function print_cpus {
 	test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
 	CPUFREQGOVERNOR="-"
 	test -f $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
-	# frequency statistics needs CONFIG_CPU_FREQ_STAT:
 	CPUFREQTRANS="n.a."
-	test -r $CPU/cpufreq/stats/total_trans && CPUFREQTRANS=$(cat $CPU/cpufreq/stats/total_trans)
+	if test -r results-cpufreq1.dat; then
+	    CPUFREQTRANS=$(sed -n -e "${CPU_NUM}p" results-cpufreq1.dat)
+	    if test -r results-cpufreq0.dat; then
+		CF0=$(sed -n -e "${CPU_NUM}p" results-cpufreq0.dat)
+		let CPUFREQTRANS-=$CF0
+	    fi
+	fi
 	printf "  cpu%-2d  %6d  %4d  %6d  %8.3f  %12s  %11s" ${CPU#/sys/devices/system/cpu/cpu} $(cat $CPUT/physical_package_id) $(cat $CPUT/core_id) $ONLINE $CPUFREQ $CPUFREQGOVERNOR $CPUFREQTRANS
-	if test -f $CPU/cpuidle/state0/$CSTATEUSAGE; then
-	    SUM=$(cat $CPU/cpuidle/state?/$CSTATEUSAGE | awk '{N+=$1} END {print N}')
+	if test -r results-cpuidle1.dat; then
+	    CPUIDLETRANS=($(sed -n -e "${CPU_NUM}p" results-cpuidle1.dat))
+	    if test -r results-cpuidle0.dat; then
+		CI0=($(sed -n -e "${CPU_NUM}p" results-cpuidle0.dat))
+		for (( i=0; i<${#CPUIDLETRANS[@]}; ++i )); do
+		    let CPUIDLETRANS[$i]-=${CI0[$i]}
+		done
+	    fi
+	    SUM=0
+	    for CS in ${CPUIDLETRANS[*]}; do
+		let SUM+=$CS
+	    done
+	    CS=0
 	    for CSTATE in $CPU/cpuidle/state*; do
-		printf "  %1s %4.1f%%" $(cat $CSTATE/disable) $(echo "scale=1; 100.0*$(cat $CSTATE/$CSTATEUSAGE)/$SUM" | bc)
+		printf "  %1s %4.1f%%" $(cat $CSTATE/disable) $(echo "scale=1; 100.0*${CPUIDLETRANS[$CS]}/$SUM" | bc)
+		let CS+=1
 	    done
 	fi
     printf "\n"
@@ -790,6 +872,9 @@ function print_cpus {
     echo "  machine (uname -m): $MACHINE"
     echo "  memory (free -h)  : $(free -h | grep Mem | awk '{print $2}') RAM"
     echo
+
+    # clean up:
+    rm -f results-cpu?????.dat
 }
 
 function print_distribution {
@@ -923,6 +1008,7 @@ function print_config {
 
 function print_kernel_info {
     CPUDATA="$1"
+    CPU_NUM="$2"
     echo
     echo "Loaded modules (lsmod):"
     if test -f lsmod.dat; then
@@ -935,6 +1021,7 @@ function print_kernel_info {
     print_interrupts
     print_distribution
     print_kernel
+    print_environment $CPU_NUM
     if test -z "$CPUDATA"; then
 	print_cpus
     else
@@ -1727,8 +1814,9 @@ function test_save {
     REPORT="$2"
     TESTED="$3"
     PROGRESS="$4"
-    CPUDATA="$5"
-    HARDWARE="$6"
+    CPU_NUM="$5"
+    CPUDATA="$6"
+    HARDWARE="$7"
     {
 	# summary analysis of test results:
 	echo "Test summary (in nanoseconds):"
@@ -1846,7 +1934,7 @@ function test_save {
 		fi
 	    done
 	done
-	print_kernel_info $CPUDATA
+	print_kernel_info $CPUDATA $CPU_NUM
 	echo
 	if test "x$HARDWARE" == "xhardware" && lshw -version &> /dev/null; then
 	    echo "Hardware (lshw):"
@@ -2047,6 +2135,14 @@ function test_kernel {
 	lsmod | grep -q rtai_$MOD && { rmmod rtai_$MOD && echo_log "removed already loaded rtai_$MOD"; }
     done
 
+    # add CPU mask:
+    if test -n "$CPUIDS"; then
+	NAME="${NAME}-cpu${CPUIDS%%,*}"
+	setup_rtai "$CPUIDS"
+    fi
+    CPU_ID=0
+    test -n "$CPUIDS" && CPU_ID=${CPUIDS%%,*}
+
     echo_log
     TESTED=""
     PROGRESS=""
@@ -2072,12 +2168,12 @@ function test_kernel {
 	    cd cpulatency
 	    make clean
 	    make
-	    CPU_ID=""
-	    ! $CPULATENCYALL && test -n "$CPUIDS" && CPU_ID="cpu_id=${CPUIDS%%,*}"
-	    if insmod cpulatency.ko $CPU_ID; then
+	    CPU_IDP=""
+	    ! $CPULATENCYALL && test -n "$CPUIDS" && CPU_IDP="cpu_id=${CPUIDS%%,*}"
+	    if insmod cpulatency.ko $CPU_IDP; then
 		sleep 1
-		CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
-		case CPU_ID in
+		CPUID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
+		case CPUID in
 		    all ) 
 			NAME="${NAME}-nocpulatency"
 			echo_log "Set latency of all CPUs to zero via cpulatency kernel module."
@@ -2086,8 +2182,8 @@ function test_kernel {
 			echo_log "Failed to set latency of CPUs via cpulatency kernel module."
 			;;
 		    *) 
-			NAME="${NAME}-nocpulatency${CPU_ID}"
-			echo_log "Set latency of CPU ${CPU_ID} to zero via cpulatency kernel module."
+			NAME="${NAME}-nocpulatency${CPUID}"
+			echo_log "Set latency of CPU ${CPUID} to zero via cpulatency kernel module."
 			;;
 		esac 
 	    else
@@ -2104,12 +2200,10 @@ function test_kernel {
     if $CPUGOVERNOR; then
 	GOVERNOR=""
 	SCALING_GOVERNOR="/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
-	CPU_ID=0
-	test -n "$CPUIDS" && CPU_ID=${CPUIDS%%,*}
 	SCALING_GOVERNOR="/sys/devices/system/cpu/cpu${CPU_ID}/cpufreq/scaling_governor"
 	if test -r $SCALING_GOVERNOR; then
 	    echo_log "Set cpu freq performance governor for CPU ${CPU_ID} ."
-	    NAME="${NAME}-nolatency"
+	    NAME="${NAME}-performance"
 	    GOVERNOR="$(cat $SCALING_GOVERNOR)"
 	    exec 6> $SCALING_GOVERNOR
 	    echo "performance" >&6
@@ -2117,12 +2211,6 @@ function test_kernel {
 	    echo_log "Cannot set cpu freq governor."
 	    CPUGOVERNOR=false
 	fi
-    fi
-
-    # add CPU mask:
-    if test -n "$CPUIDS"; then
-	NAME="${NAME}-cpu${CPUIDS%%,*}"
-	setup_rtai "$CPUIDS"
     fi
 
     # add load information to description:
@@ -2144,7 +2232,7 @@ function test_kernel {
     # rtai_hal:
     if test $MAXMODULE -ge 1; then
 	TESTED="${TESTED}h"
-	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	echo_kmsg "INSMOD ${REALTIME_DIR}/modules/rtai_hal.ko $RTAI_HAL_PARAM"
 	lsmod | grep -q rtai_hal || { insmod ${REALTIME_DIR}/modules/rtai_hal.ko $RTAI_HAL_PARAM && echo_log "loaded  rtai_hal $RTAI_HAL_PARAM" || RTAIMOD_FAILED=true; }
 	$RTAIMOD_FAILED || PROGRESS="${PROGRESS}h"
@@ -2153,7 +2241,7 @@ function test_kernel {
     # rtai_sched:
     if test $MAXMODULE -ge 2; then
 	TESTED="${TESTED}s"
-	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	echo_kmsg "INSMOD ${REALTIME_DIR}/modules/rtai_sched.ko $RTAI_SCHED_PARAM"
 	lsmod | grep -q rtai_sched || { insmod ${REALTIME_DIR}/modules/rtai_sched.ko $RTAI_SCHED_PARAM && echo_log "loaded  rtai_sched $RTAI_SCHED_PARAM" || RTAIMOD_FAILED=true; }
 	$RTAIMOD_FAILED || PROGRESS="${PROGRESS}s"
@@ -2163,7 +2251,7 @@ function test_kernel {
     if test $MAXMODULE -ge 3; then
 	if test -f ${REALTIME_DIR}/modules/rtai_math.ko; then
 	    TESTED="${TESTED}m"
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	    echo_kmsg "INSMOD ${REALTIME_DIR}/modules/rtai_math.ko"
 	    lsmod | grep -q rtai_math || { insmod ${REALTIME_DIR}/modules/rtai_math.ko && echo_log "loaded  rtai_math" && PROGRESS="${PROGRESS}m"; }
 	else
@@ -2173,7 +2261,7 @@ function test_kernel {
     
     if test $MAXMODULE -ge 4 && $MAKE_COMEDI && ! $RTAIMOD_FAILED; then
 	TESTED="${TESTED}c"
-	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	# loading comedi:
 	echo_kmsg "LOAD COMEDI MODULES"
 	echo_log "triggering comedi "
@@ -2188,7 +2276,7 @@ function test_kernel {
 	echo_kmsg "REMOVE COMEDI MODULES"
 	remove_comedi_modules
     fi
-    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
     
     # remove rtai modules:
     if test $MAXMODULE -ge 3; then
@@ -2283,12 +2371,14 @@ function test_kernel {
 	done
 	test -n "$LOADMODE" && echo_log
 
+	store_cpus 0
+
 	# run tests:
 	for DIR in $TESTMODE; do
 	    TT=${DIR:0:1}
 	    test "$DIR" = "kthreads" && TT="t"
 	    TESTED="${TESTED}${TT}"
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS"
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 
 	    test_run $DIR latency $TEST_TIME
 	    print_cpus > results-cpus.dat
@@ -2298,14 +2388,14 @@ function test_kernel {
 		TEST_RESULT="$(test_result ${TESTMODE%% *})"
 		REPORT="${REPORT_NAME}-${TEST_RESULT}"
 	    fi
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID" results-cpus.dat
 
 	    test_run $DIR switches $TEST_TIME
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID" results-cpus.dat
 
 	    test_run $DIR preempt $TEST_TIME
 	    PROGRESS="${PROGRESS}${TT}"
-	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat
+	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID" results-cpus.dat
 	done
     fi
 
@@ -2366,7 +2456,7 @@ function test_kernel {
     fi
     if test "$RESULT" != n; then
 	REPORT="${REPORT_NAME}-${RESULT}"
-	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" results-cpus.dat hardware
+	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID" results-cpus.dat hardware
 	echo_log
 	echo_log "saved kernel configuration in : config-$REPORT"
 	echo_log "saved test results in         : latencies-$REPORT"
@@ -2382,6 +2472,7 @@ function test_kernel {
 	done
     done
     rm -f results-cpus.dat
+    rm -f results-cpu?????.dat
     rm -f load.dat
     rm -f lsmod.dat
 }
@@ -4229,6 +4320,7 @@ function info_all {
 	check_kernel_patch "$ORIG_RTAI_PATCH"
 	RTAI_PATCH="$ORIG_RTAI_PATCH"
 	rm -f lsmod.dat
+	rm -f results-cpu?????.dat
 	print_kernel_info
     else
 
@@ -4262,7 +4354,7 @@ function info_all {
 
 	    kernel ) print_kernel ;;
 
-	    cpu|cpus ) print_cpus ;;
+	    cpu|cpus ) rm -f results-cpu?????.dat; print_cpus ;;
 
 	    interrupts ) print_interrupts ;;
 
