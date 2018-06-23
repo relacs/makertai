@@ -742,7 +742,7 @@ function print_environment {
     test -n "$1" && CPU_NUM=$1
     CPU=/sys/devices/system/cpu/cpu${CPU_NUM}
     CPUFREQGOVERNOR="-"
-    test -f $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
+    test -r $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
     echo "  governor            : $CPUFREQGOVERNOR"
     CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$(($CPU_NUM+1)) {print \$2}")
     test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
@@ -751,12 +751,16 @@ function print_environment {
 	CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_max_freq)/1000000.0 | bc)
 	echo "  max cpu frequency   : $CPUFREQ"
     fi
+    if test -r $CPU/cpufreq/scaling_min_freq; then
+	CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_min_freq)/1000000.0 | bc)
+	echo "  min cpu frequency   : $CPUFREQ"
+    fi
 
     echo
 }
 
 function store_cpus {
-    rm -f results-cpu?????.dat
+    rm -f results-cpufreq${1}.dat results-cpuidle${1}.dat
 
     # frequency statistics needs CONFIG_CPU_FREQ_STAT:
     if test -r /sys/devices/system/cpu/cpu0/cpufreq/stats/total_trans; then
@@ -872,9 +876,6 @@ function print_cpus {
     echo "  machine (uname -m): $MACHINE"
     echo "  memory (free -h)  : $(free -h | grep Mem | awk '{print $2}') RAM"
     echo
-
-    # clean up:
-    rm -f results-cpu?????.dat
 }
 
 function print_distribution {
@@ -1021,11 +1022,11 @@ function print_kernel_info {
     print_interrupts
     print_distribution
     print_kernel
-    print_environment $CPU_NUM
-    if test -z "$CPUDATA"; then
-	print_cpus
-    else
+    if test -n "$CPUDATA" && test -r "$CPUDATA"; then
 	cat $CPUDATA
+    else
+	print_environment $CPU_NUM
+	print_cpus
     fi
     print_versions
     print_grub
@@ -2226,6 +2227,9 @@ function test_kernel {
     REPORT_NAME="${REPORT_NAME}-${NUM}-$(date '+%F')-${NAME}"
     REPORT="${REPORT_NAME}-failed"
 
+    # store CPU info
+    store_cpus 0
+
     # loading rtai kernel modules:
     RTAIMOD_FAILED=false
 
@@ -2234,7 +2238,7 @@ function test_kernel {
 	TESTED="${TESTED}h"
 	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	echo_kmsg "INSMOD ${REALTIME_DIR}/modules/rtai_hal.ko $RTAI_HAL_PARAM"
-	lsmod | grep -q rtai_hal || { insmod ${REALTIME_DIR}/modules/rtai_hal.ko $RTAI_HAL_PARAM && echo_log "loaded  rtai_hal $RTAI_HAL_PARAM" || RTAIMOD_FAILED=true; }
+	lsmod | grep -q rtai_hal || { insmod ${REALTIME_DIR}/modules/rtai_hal.ko $RTAI_HAL_PARAM && echo_log "loaded rtai_hal $RTAI_HAL_PARAM" || RTAIMOD_FAILED=true; }
 	$RTAIMOD_FAILED || PROGRESS="${PROGRESS}h"
     fi
 
@@ -2243,7 +2247,7 @@ function test_kernel {
 	TESTED="${TESTED}s"
 	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	echo_kmsg "INSMOD ${REALTIME_DIR}/modules/rtai_sched.ko $RTAI_SCHED_PARAM"
-	lsmod | grep -q rtai_sched || { insmod ${REALTIME_DIR}/modules/rtai_sched.ko $RTAI_SCHED_PARAM && echo_log "loaded  rtai_sched $RTAI_SCHED_PARAM" || RTAIMOD_FAILED=true; }
+	lsmod | grep -q rtai_sched || { insmod ${REALTIME_DIR}/modules/rtai_sched.ko $RTAI_SCHED_PARAM && echo_log "loaded rtai_sched $RTAI_SCHED_PARAM" || RTAIMOD_FAILED=true; }
 	$RTAIMOD_FAILED || PROGRESS="${PROGRESS}s"
     fi
 
@@ -2253,7 +2257,7 @@ function test_kernel {
 	    TESTED="${TESTED}m"
 	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 	    echo_kmsg "INSMOD ${REALTIME_DIR}/modules/rtai_math.ko"
-	    lsmod | grep -q rtai_math || { insmod ${REALTIME_DIR}/modules/rtai_math.ko && echo_log "loaded  rtai_math" && PROGRESS="${PROGRESS}m"; }
+	    lsmod | grep -q rtai_math || { insmod ${REALTIME_DIR}/modules/rtai_math.ko && echo_log "loaded rtai_math" && PROGRESS="${PROGRESS}m"; }
 	else
 	    echo_log "rtai_math is not available"
 	fi
@@ -2267,7 +2271,7 @@ function test_kernel {
 	echo_log "triggering comedi "
 	udevadm trigger
 	sleep 1
-	modprobe kcomedilib && echo_log "loaded  kcomedilib"
+	modprobe kcomedilib && echo_log "loaded kcomedilib"
 
 	lsmod | grep -q kcomedilib && PROGRESS="${PROGRESS}c"
 	
@@ -2381,7 +2385,8 @@ function test_kernel {
 	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID"
 
 	    test_run $DIR latency $TEST_TIME
-	    print_cpus > results-cpus.dat
+	    print_environment "$CPU_ID" > results-cpus.dat
+	    print_cpus >> results-cpus.dat
 	    if test $DIR = ${TESTMODE%% *}; then
 		rm -f config-$REPORT
 		rm -f latencies-$REPORT
@@ -2397,6 +2402,9 @@ function test_kernel {
 	    PROGRESS="${PROGRESS}${TT}"
 	    test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID" results-cpus.dat
 	done
+    else
+	print_environment "$CPU_ID" > results-cpus.dat
+	print_cpus >> results-cpus.dat
     fi
 
     # clean up load:
@@ -2694,11 +2702,18 @@ EOF
 
     # run batch file:
     N_TESTS=$(sed -e 's/ *#.*$//' $BATCH_FILE | grep -c ':.*:')
+    N_COMPILE=$(sed -e 's/ *#.*$//' $BATCH_FILE | grep ':.*:' | grep -c CONFIG)
+    IFS=':' read D M P < <(sed -e 's/ *#.*$//' $BATCH_FILE | grep ':.*:' | sed -n -e 1p)
+    M=$(echo $M)
+    P=$(echo $P)
+    if test "x${M}" = "xCONFIG" && test -z "$P"; then
+	let N_TESTS-=1
+	let N_COMPILE-=1
+    fi
     if test $N_TESTS -eq 0; then
 	echo_log "No valid configurations specified in file \"$BATCH_FILE\"!"
 	exit 1
     fi
-    N_COMPILE=$(sed -e 's/ *#.*$//' $BATCH_FILE | grep ':.*:' | grep -c CONFIG)
 
     shift
     TEST_TIME="$((10#$1))"
@@ -2708,9 +2723,9 @@ EOF
     TESTMODE=$(echo $TESTMODE)  # strip whitespace
     shift
     TEST_SPECS="$@"
+    [[ "$TEST_SPECS" != *"$TEST_TIME"* ]] && TEST_SPECS="$TEST_SPECS $TEST_TIME"
 
     # compute total time needed for the tests:
-    TEST_SPECS="$TEST_SPECS $TEST_TIME"
     TEST_TOTAL_TIME=30
     for TM in $TESTMODE; do
 	let TEST_TOTAL_TIME+=$TEST_TIME
@@ -4322,6 +4337,7 @@ function info_all {
 	rm -f lsmod.dat
 	rm -f results-cpu?????.dat
 	print_kernel_info
+	rm -f results-cpu?????.dat
     else
 
 	case $1 in
@@ -4354,7 +4370,7 @@ function info_all {
 
 	    kernel ) print_kernel ;;
 
-	    cpu|cpus ) rm -f results-cpu?????.dat; print_cpus ;;
+	    cpu|cpus ) rm -f results-cpu?????.dat; print_cpus; rm -f results-cpu?????.dat; ;;
 
 	    interrupts ) print_interrupts ;;
 
