@@ -118,22 +118,69 @@ class DataTable:
 
     def write(self, df, number_cols=False, units="row", table_format='dat'):
         # units: "row", "header" or "none"
-        # table_format: "dat", "md", "html", "tex"
+        # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
         format_width = True
         begin_str = ''
         end_str = ''
         header_start = '# '
-        header_sep = ' | '
+        header_sep = '  '
         header_close = ''
         header_end = '\n'
         data_start = '  '
-        data_sep = ' | '
+        data_sep = '  '
         data_close = ''
         data_end = '\n'
         top_line = False
         header_line = False
         bottom_line = False
-        if table_format[0] == 'm':
+        if table_format[0] == 'a':
+            format_width = True
+            begin_str = ''
+            end_str = ''
+            header_start = '# '
+            header_sep = ' | '
+            header_close = ''
+            header_end = '\n'
+            data_start = '  '
+            data_sep = ' | '
+            data_close = ''
+            data_end = '\n'
+            top_line = False
+            header_line = False
+            bottom_line = False
+        elif table_format[0] == 'r':
+            format_width = True
+            begin_str = ''
+            end_str = ''
+            header_start = 'RTH| '
+            header_sep = '| '
+            header_close = ''
+            header_end = '\n'
+            data_start = 'RTD| '
+            data_sep = '| '
+            data_close = ''
+            data_end = '\n'
+            top_line = False
+            header_line = False
+            bottom_line = False
+        elif table_format[0] == 'c':
+            # cvs according to http://www.ietf.org/rfc/rfc4180.txt :
+            number_cols=False
+            if units == "row":
+                units = "header"
+            format_width = False
+            header_start=''
+            header_sep = ','
+            header_close = ''
+            header_end='\n'
+            data_start=''
+            data_sep = ','
+            data_close = ''
+            data_end='\n'
+            top_line = False
+            header_line = False
+            bottom_line = False
+        elif table_format[0] == 'm':
             number_cols=False
             if units == "row":
                 units = "header"
@@ -215,7 +262,7 @@ class DataTable:
                 df.write(header_end.replace(' ', '-'))
         # section and column headers:
         nsec0 = 0
-        if table_format[0] == 'm':
+        if table_format[0] in 'cm':
             nsec0 = self.nsecs
         for ns in range(nsec0, self.nsecs+1):
             nsec = self.nsecs-ns
