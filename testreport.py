@@ -116,22 +116,57 @@ class DataTable:
             while len(self.data[c]) < r:
                 self.data[c].append(float('NaN'))
 
-    def write(self, df, number_cols=False, mark_down=False):
-        header_str='# '
-        data_str='  '
-        sep_str = ' | '
-        end_str = '\n'
+    def write(self, df, number_cols=False, units="row", table_format='dat'):
+        # units: "row", "header" or "none"
+        # table_format: "dat", "md", "html", "tex"
+        format_width = True
+        header_start = '# '
+        header_sep = ' | '
+        header_close = ''
+        header_end = '\n'
+        data_start = '  '
+        data_sep = ' | '
+        data_close = ''
+        data_end = '\n'
         top_line = False
         header_line = False
         bottom_line = False
-        if mark_down:
-            header_str='| '
-            data_str='| '
-            sep_str = ' | '
-            end_str=' |\n'
+        begin_str = ''
+        end_str = ''
+        if table_format[0] == 'm':
+            number_cols=False
+            if units == "row":
+                units = "header"
+            format_width = True
+            header_start='| '
+            header_sep = ' | '
+            header_close = ''
+            header_end=' |\n'
+            data_start='| '
+            data_sep = ' | '
+            data_close = ''
+            data_end=' |\n'
             top_line = False
             header_line = True
             bottom_line = False
+        elif table_format[0] == 'h':
+            format_width = False
+            header_start='  <tr>\n    <th align="left"'
+            header_sep = '</th>\n    <th align="left"'
+            header_close = '>'
+            header_end='</th>\n  </tr>\n'
+            data_start='  <tr>\n    <td'
+            data_sep = '</td>\n    <td'
+            data_close = '>'
+            data_end='</td>\n  </tr>\n'
+            top_line = False
+            header_line = False
+            bottom_line = False
+            begin_str = '<table>\n'
+            end_str = '</table>\n'
+
+        # begin table:
+        df.write(begin_str)
         # retrieve column widths:
         widths = []
         for f in self.formats:
@@ -143,99 +178,140 @@ class DataTable:
         # top line:
         if top_line:
             first = True
-            df.write(header_str.replace(' ', '-'))
+            df.write(header_start.replace(' ', '-'))
             for i in range(len(self.header)):
                 if not first:
-                    df.write('-'*len(sep_str))
+                    df.write('-'*len(header_sep))
                 first = False
+                df.write(header_close)
                 w = widths[i]
                 df.write(w*'-')
-            df.write(end_str.replace(' ', '-'))
+            df.write(header_end.replace(' ', '-'))
         # section and column headers:
-        for ns in range(self.nsecs+1):
+        nsec0 = 0
+        if table_format[0] == 'm':
+            nsec0 = self.nsecs
+        for ns in range(nsec0, self.nsecs+1):
             nsec = self.nsecs-ns
             first = True
-            df.write(header_str)
+            df.write(header_start)
             for i in range(len(self.header)):
                 if nsec < len(self.header[i]):
                     if not first:
-                        df.write(sep_str)
+                        df.write(header_sep)
                     first = False
-                    # section width:
+                    hs = self.header[i][nsec]
+                    if nsec == 0 and units == "header":
+                        if units and self.units[i] != '1':
+                            hs += '/' + self.units[i]
+                    # section width and column count:
                     sw = widths[i]
+                    columns = 1
                     for k in range(i+1, len(self.header)):
                         if nsec < len(self.header[k]):
                             break
-                        sw += len(sep_str) + widths[k]
-                    f = '%%-%ds' % sw
-                    df.write(f % self.header[i][nsec])
-            df.write(end_str)
+                        sw += len(header_sep) + widths[k]
+                        columns += 1
+                    if table_format[0] == 'h':
+                        if columns>1:
+                            df.write(' colspan="%d"' % columns)
+                    df.write(header_close)
+                    if format_width:
+                        f = '%%-%ds' % sw
+                        df.write(f % hs)
+                    else:
+                        df.write(hs)
+            df.write(header_end)
         # units:
-        first = True
-        df.write(header_str)
-        for i in range(len(self.header)):
-            if not first:
-                df.write(sep_str)
-            first = False
-            f = '%%-%ds' % widths[i]
-            df.write(f % self.units[i])
-        df.write(end_str)
+        if units == "row":
+            first = True
+            df.write(header_start)
+            for i in range(len(self.header)):
+                if not first:
+                    df.write(header_sep)
+                first = False
+                df.write(header_close)
+                if format_width:
+                    f = '%%-%ds' % widths[i]
+                    df.write(f % self.units[i])
+                else:
+                    df.write(self.units[i])
+            df.write(header_end)
         # column numbers:
         if number_cols:
             first = True
-            df.write(header_str)
+            df.write(header_start)
             for i in range(len(self.header)):
                 if not first:
-                    df.write(sep_str)
+                    df.write(header_sep)
                 first = False
-                f = '%%%dd' % widths[i]
-                df.write(f % (i+1))
-            df.write(end_str)
-        # header line:
-        if mark_down:
-            df.write('|')
-            for i in range(len(self.header)):
-                w = widths[i]+1
-                if self.formats[i][1] == '-':
-                    df.write(':' + w*'-' + '|')
+                df.write(header_close)
+                if format_width:
+                    f = '%%%dd' % widths[i]
+                    df.write(f % (i+1))
                 else:
-                    df.write(w*'-' + ':|')
-            df.write('\n')
-        else:
-            first = True
-            df.write(header_str.replace(' ', '-'))
-            for i in range(len(self.header)):
-                if not first:
-                    df.write(sep_str.replace(' ', '-'))
-                first = False
-                w = widths[i]
-                df.write(w*'-')
-            df.write(end_str.replace(' ', '-'))
+                    df.write("%d" % (i+1))
+            df.write(header_end)
+        # header line:
+        if header_line:
+            if table_format[0] == 'm':
+                df.write('|')
+                for i in range(len(self.header)):
+                    w = widths[i]+2
+                    if self.formats[i][1] == '-':
+                        df.write(w*'-' + '|')
+                    else:
+                        df.write((w-1)*'-' + ':|')
+                df.write('\n')
+            else:
+                first = True
+                df.write(header_start.replace(' ', '-'))
+                for i in range(len(self.header)):
+                    if not first:
+                        df.write(header_sep.replace(' ', '-'))
+                    first = False
+                    df.write(header_close)
+                    w = widths[i]
+                    df.write(w*'-')
+                df.write(header_end.replace(' ', '-'))
         # data:
         for k in range(len(self.data[0])):
             first = True
-            df.write(data_str)
+            df.write(data_start)
             for c, f in enumerate(self.formats):
                 if not first:
-                    df.write(sep_str)
+                    df.write(data_sep)
                 first = False
+                if table_format[0] == 'h':
+                    if f[1] != '-':
+                        df.write(' align="right"')
+                df.write(data_close)
                 if isinstance(self.data[c][k], float) and m.isnan(self.data[c][k]):
-                    fn = '%%%ds' % widths[c]
-                    df.write(fn % '-')
+                    if format_width:
+                        fn = '%%%ds' % widths[c]
+                        df.write(fn % '-')
+                    else:
+                        df.write('-')
                 else:
-                    df.write(f % self.data[c][k])
-            df.write(end_str)
+                    ds = f % self.data[c][k]
+                    if not format_width:
+                        ds = ds.strip()
+                    df.write(ds)
+            df.write(data_end)
         # bottom line:
         if bottom_line:
             first = True
-            df.write(header_str.replace(' ', '-'))
+            df.write(header_start.replace(' ', '-'))
             for i in range(len(self.header)):
                 if not first:
-                    df.write('-'*len(sep_str))
+                    df.write('-'*len(header_sep))
                 first = False
+                df.write(header_close)
                 w = widths[i]
                 df.write(w*'-')
-            df.write(end_str.replace(' ', '-'))
+            df.write(header_end.replace(' ', '-'))
+        # end table:
+        df.write(end_str)
             
 
 def analyze_latencies(data):
@@ -260,7 +336,7 @@ init = 10
 outlier = 0.0  # percent
 
 number_cols = False
-mark_down = False
+table_format = 'dat'
 
 
 # command line arguments:
@@ -269,13 +345,15 @@ parser = argparse.ArgumentParser(
     epilog='by Jan Benda (2018)')
 parser.add_argument('--version', action='version', version="1.0")
 parser.add_argument('-i', nargs=1, default=[init],
-                    type=int, metavar='N', dest='init',
+                    type=int, metavar='LINES', dest='init',
                     help='number of initial lines to be skipped (defaults to {0:d})'.format(init))
 parser.add_argument('-p', nargs=1, default=[outlier],
-                    type=float, metavar='P', dest='outlier',
+                    type=float, metavar='PERCENT', dest='outlier',
                     help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
+parser.add_argument('-f', nargs=1, default=[table_format],
+                    type=str, metavar='FORMAT', dest='table_format',
+                    help='output format of summary table (defaults to {0:s}%%)'.format(table_format))
 parser.add_argument('-n', dest='number_cols', action='store_true', help='add line with column numbers to header')
-parser.add_argument('-m', dest='mark_down', action='store_true', help='use markdown table format')
 parser.add_argument('file', nargs='*', default='', type=str,
                     help='latency-* file with RTAI test results')
 args = parser.parse_args()
@@ -283,7 +361,7 @@ args = parser.parse_args()
 init = args.init[0]
 outlier = args.outlier[0]
 number_cols = args.number_cols
-mark_down = args.mark_down
+table_format = args.table_format[0]
 
 dt = DataTable()
 dt.add_section('data')
@@ -438,7 +516,7 @@ for filename in args.file:
 
 # write results:
 dt.adjust_columns()
-dt.write(sys.stdout, number_cols=number_cols, mark_down=mark_down)
+dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
 
 # latency:
 #RTH|    lat min|    ovl min|    lat avg|    lat max|    ovl max|   overruns
