@@ -107,7 +107,7 @@ class DataTable:
             while len(self.data[c]) < r:
                 self.data[c].append(float('NaN'))
 
-    def write(self, df):
+    def write(self, df, number_cols=False):
         # retrieve column widths:
         widths = []
         for f in self.formats:
@@ -145,16 +145,17 @@ class DataTable:
             f = '%%-%ds' % widths[i]
             df.write(f % self.units[i])
         df.write('\n')
-        # column number:
-        first = True
-        df.write('# ')
-        for i in range(len(self.header)):
-            if not first:
-                df.write(self.sep)
-            first = False
-            f = '%%%dd' % widths[i]
-            df.write(f % (i+1))
-        df.write('\n')
+        # column numbers:
+        if number_cols:
+            first = True
+            df.write('# ')
+            for i in range(len(self.header)):
+                if not first:
+                    df.write(self.sep)
+                first = False
+                f = '%%%dd' % widths[i]
+                df.write(f % (i+1))
+            df.write('\n')
         # data:
         for k in range(len(self.data[0])):
             first = True
@@ -192,6 +193,9 @@ def analyze_overruns(data):
 init = 10
 outlier = 0.0  # percent
 
+number_cols = False
+
+
 # command line arguments:
 parser = argparse.ArgumentParser(
     description='Analyse RTAI test results.',
@@ -203,12 +207,14 @@ parser.add_argument('-i', nargs=1, default=[init],
 parser.add_argument('-p', nargs=1, default=[outlier],
                     type=float, metavar='P', dest='outlier',
                     help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
+parser.add_argument('-n', dest='number_cols', action='store_true', help='add line with column numbers to header')
 parser.add_argument('file', nargs='*', default='', type=str,
                     help='latency-* file with RTAI test results')
 args = parser.parse_args()
 
 init = args.init[0]
 outlier = args.outlier[0]
+number_cols = args.number_cols
 
 dt = DataTable()
 dt.add_section('data')
@@ -367,7 +373,7 @@ for filename in args.file:
 
 # write results:
 dt.adjust_columns()
-dt.write(sys.stdout)
+dt.write(sys.stdout, number_cols=number_cols)
 
 # latency:
 #RTH|    lat min|    ovl min|    lat avg|    lat max|    ovl max|   overruns
