@@ -116,9 +116,10 @@ class DataTable:
             while len(self.data[c]) < r:
                 self.data[c].append(float('NaN'))
 
-    def write(self, df, number_cols=False, units="row", table_format='dat'):
-        # units: "row", "header" or "none"
+    def write(self, df, table_format='dat', units="row", number_cols=False):
         # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
+        # units: "row", "header" or "none"
+        # number_cols: add row with colum numbers
         format_width = True
         begin_str = ''
         end_str = ''
