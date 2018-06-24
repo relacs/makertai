@@ -607,7 +607,7 @@ function print_setup {
 }
 
 function print_log {
-    if test -f "${LOG_FILE}"; then
+    if test -r "${LOG_FILE}"; then
 	echo "Content of the log-file \"${LOG_FILE}\":"
 	cat "$LOG_FILE"
     else
@@ -656,7 +656,7 @@ function print_versions {
     echo "Versions:"
     echo "  kernel     : ${LINUX_KERNEL}"
     echo "  gcc        : $(gcc --version | head -n 1)"
-    if test -f ${LOCAL_SRC_PATH}/${RTAI_DIR}/revision.txt; then
+    if test -r ${LOCAL_SRC_PATH}/${RTAI_DIR}/revision.txt; then
 	echo "  rtai       : ${RTAI_DIR} from $(cat ${LOCAL_SRC_PATH}/${RTAI_DIR}/revision.txt)"
 	echo "  patch      : ${RTAI_PATCH}"
     elif test -d ${LOCAL_SRC_PATH}/${RTAI_DIR}; then
@@ -665,30 +665,30 @@ function print_versions {
     else
 	echo "  rtai       : not available"
     fi
-    if test -f ${LOCAL_SRC_PATH}/newlib/src/revision.txt; then
+    if test -r ${LOCAL_SRC_PATH}/newlib/src/revision.txt; then
 	echo "  newlib     : git from $(cat ${LOCAL_SRC_PATH}/newlib/src/revision.txt)"
-    elif test -f ${LOCAL_SRC_PATH}/newlib/revision.txt; then
+    elif test -r ${LOCAL_SRC_PATH}/newlib/revision.txt; then
 	echo "  newlib     : git from $(cat ${LOCAL_SRC_PATH}/newlib/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/newlib; then
 	echo "  newlib     : revision not available"
     else
 	echo "  newlib     : not available"
     fi
-    if test -f ${LOCAL_SRC_PATH}/comedi/revision.txt; then
+    if test -r ${LOCAL_SRC_PATH}/comedi/revision.txt; then
 	echo "  comedi     : git from $(cat ${LOCAL_SRC_PATH}/comedi/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/comedi; then
 	echo "  comedi     : revision not available"
     else
 	echo "  comedi     : not available"
     fi
-    if test -f ${LOCAL_SRC_PATH}/comedilib/revision.txt; then
+    if test -r ${LOCAL_SRC_PATH}/comedilib/revision.txt; then
 	echo "  comedilib  : git from $(cat ${LOCAL_SRC_PATH}/comedilib/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/comedilib; then
 	echo "  comedilib  : revision not available"
     else
 	echo "  comedilib  : not available"
     fi
-    if test -f ${LOCAL_SRC_PATH}/comedicalib/revision.txt; then
+    if test -r ${LOCAL_SRC_PATH}/comedicalib/revision.txt; then
 	echo "  comedicalib: git from $(cat ${LOCAL_SRC_PATH}/comedicalib/revision.txt)"
     elif test -d ${LOCAL_SRC_PATH}/comedicalib; then
 	echo "  comedicalib: revision not available"
@@ -717,7 +717,11 @@ function print_kernel {
 }
 
 function print_environment {
+    CPU_ID=0
+    test -n "$1" && CPU_ID=$1
+
     echo "Environment:"
+    echo "  tests run on cpu    : ${CPU_ID}"
 
     # /dev/cpu_dma_latency:
     if test "x$(id -u)" == "x0"; then
@@ -731,20 +735,18 @@ function print_environment {
 
     # cpulatency kernel module:
     if lsmod | grep -q cpulatency; then
-	CPU_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
-	echo "  cpulatency on cpu   : $CPU_ID"
+	CPU_LAT_ID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
+	echo "  cpulatency on cpu   : $CPU_LAT_ID"
     else
 	echo "  cpulatency          : not loaded"
     fi
 
     # frequency scaling:
-    CPU_NUM=0
-    test -n "$1" && CPU_NUM=$1
-    CPU=/sys/devices/system/cpu/cpu${CPU_NUM}
+    CPU=/sys/devices/system/cpu/cpu${CPU_ID}
     CPUFREQGOVERNOR="-"
     test -r $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
     echo "  governor            : $CPUFREQGOVERNOR"
-    CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$(($CPU_NUM+1)) {print \$2}")
+    CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$(($CPU_ID+1)) {print \$2}")
     test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
     echo "  cpu frequency       : $CPUFREQ"
     if test -r $CPU/cpufreq/scaling_max_freq; then
@@ -789,7 +791,7 @@ function print_cpus {
 
     # second header line:
     printf "logical  socket  core  online  freq/MHz      governor  transitions"
-    if test -f /sys/devices/system/cpu/cpu0/cpuidle/state0/name; then
+    if test -r /sys/devices/system/cpu/cpu0/cpuidle/state0/name; then
 	for CSTATE in /sys/devices/system/cpu/cpu0/cpuidle/state*/name; do
 	    printf "  %-7s" $(cat $CSTATE)
 	done
@@ -798,30 +800,30 @@ function print_cpus {
 
     # data:
     store_cpus 1
-    CPU_NUM=0
+    CPU_ID=0
     for CPU in /sys/devices/system/cpu/cpu[0-9]*; do
-	let CPU_NUM+=1
+	let CPU_ID+=1
 	CPUT="$CPU/topology"
 	LC_NUMERIC="en_US.UTF-8"
 	ONLINE=1
 	test -r $CPU/online && ONLINE=$(cat $CPU/online)
-	CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$CPU_NUM {print \$2}")
+	CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$CPU_ID {print \$2}")
 	test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
 	CPUFREQGOVERNOR="-"
-	test -f $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
+	test -r $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
 	CPUFREQTRANS="n.a."
 	if test -r results-cpufreq1.dat; then
-	    CPUFREQTRANS=$(sed -n -e "${CPU_NUM}p" results-cpufreq1.dat)
+	    CPUFREQTRANS=$(sed -n -e "${CPU_ID}p" results-cpufreq1.dat)
 	    if test -r results-cpufreq0.dat; then
-		CF0=$(sed -n -e "${CPU_NUM}p" results-cpufreq0.dat)
+		CF0=$(sed -n -e "${CPU_ID}p" results-cpufreq0.dat)
 		let CPUFREQTRANS-=$CF0
 	    fi
 	fi
 	printf "  cpu%-2d  %6d  %4d  %6d  %8.3f  %12s  %11s" ${CPU#/sys/devices/system/cpu/cpu} $(cat $CPUT/physical_package_id) $(cat $CPUT/core_id) $ONLINE $CPUFREQ $CPUFREQGOVERNOR $CPUFREQTRANS
 	if test -r results-cpuidle1.dat; then
-	    CPUIDLETRANS=($(sed -n -e "${CPU_NUM}p" results-cpuidle1.dat))
+	    CPUIDLETRANS=($(sed -n -e "${CPU_ID}p" results-cpuidle1.dat))
 	    if test -r results-cpuidle0.dat; then
-		CI0=($(sed -n -e "${CPU_NUM}p" results-cpuidle0.dat))
+		CI0=($(sed -n -e "${CPU_ID}p" results-cpuidle0.dat))
 		for (( i=0; i<${#CPUIDLETRANS[@]}; ++i )); do
 		    let CPUIDLETRANS[$i]-=${CI0[$i]}
 		done
@@ -850,7 +852,7 @@ function print_cpus {
 	CPU_IDLE="$(cat /sys/devices/system/cpu/cpuidle/current_driver)"
     fi
     CPU_BOOST="no"
-    if test -f /sys/devices/system/cpu/cpufreq/boost; then
+    if test -r /sys/devices/system/cpu/cpufreq/boost; then
 	CPU_BOOST="$(cat /sys/devices/system/cpu/cpufreq/boost)"
     fi
     echo "  scaling driver : $CPU_FREQ"
@@ -870,7 +872,7 @@ function print_cpus {
 
     echo "CPU (/proc/cpuinfo):"
     echo "  $(grep "model name" /proc/cpuinfo | awk -F '\t:[ ]*' 'NR==1 { printf "%-17s : %s", $1, $2}')"
-    echo "  number of CPUs    : $CPU_NUM"
+    echo "  number of CPUs    : $CPU_ID"
     test "MAXCPUFREQ" != "n.a." && echo "  max CPU frequency : $MAXCPUFREQ MHz"
     echo "  CPU family        : $(grep "cpu family" /proc/cpuinfo | awk 'NR==1 { print $4}')"
     echo "  machine (uname -m): $MACHINE"
@@ -1009,10 +1011,10 @@ function print_config {
 
 function print_kernel_info {
     CPUDATA="$1"
-    CPU_NUM="$2"
+    CPU_ID="$2"
     echo
     echo "Loaded modules (lsmod):"
-    if test -f lsmod.dat; then
+    if test -r lsmod.dat; then
 	cat lsmod.dat | indent
 	rm -f lsmod.dat
     else
@@ -1025,7 +1027,7 @@ function print_kernel_info {
     if test -n "$CPUDATA" && test -r "$CPUDATA"; then
 	cat $CPUDATA
     else
-	print_environment $CPU_NUM
+	print_environment $CPU_ID
 	print_cpus
     fi
     print_versions
@@ -1815,7 +1817,7 @@ function test_save {
     REPORT="$2"
     TESTED="$3"
     PROGRESS="$4"
-    CPU_NUM="$5"
+    CPU_ID="$5"
     CPUDATA="$6"
     HARDWARE="$7"
     {
@@ -1935,7 +1937,7 @@ function test_save {
 		fi
 	    done
 	done
-	print_kernel_info $CPUDATA $CPU_NUM
+	print_kernel_info $CPUDATA $CPU_ID
 	echo
 	if test "x$HARDWARE" == "xhardware" && lshw -version &> /dev/null; then
 	    echo "Hardware (lshw):"
