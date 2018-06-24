@@ -120,6 +120,8 @@ class DataTable:
         # units: "row", "header" or "none"
         # table_format: "dat", "md", "html", "tex"
         format_width = True
+        begin_str = ''
+        end_str = ''
         header_start = '# '
         header_sep = ' | '
         header_close = ''
@@ -131,8 +133,6 @@ class DataTable:
         top_line = False
         header_line = False
         bottom_line = False
-        begin_str = ''
-        end_str = ''
         if table_format[0] == 'm':
             number_cols=False
             if units == "row":
@@ -151,6 +151,8 @@ class DataTable:
             bottom_line = False
         elif table_format[0] == 'h':
             format_width = False
+            begin_str = '<table>\n'
+            end_str = '</table>\n'
             header_start='  <tr>\n    <th align="left"'
             header_sep = '</th>\n    <th align="left"'
             header_close = '>'
@@ -162,11 +164,32 @@ class DataTable:
             top_line = False
             header_line = False
             bottom_line = False
-            begin_str = '<table>\n'
-            end_str = '</table>\n'
+        elif table_format[0] == 't':
+            format_width = False
+            begin_str = '\\begin{tabular}'
+            end_str = '\\end{tabular}\n'
+            header_start='  '
+            header_sep = ' & '
+            header_close = ''
+            header_end=' \\\\\n'
+            data_start='  '
+            data_sep = ' & '
+            data_close = ''
+            data_end=' \\\\\n'
+            top_line = True
+            header_line = True
+            bottom_line = True
 
         # begin table:
         df.write(begin_str)
+        if table_format[0] == 't':
+            df.write('{')
+            for f in self.formats:
+                if f[1] == '-':
+                    df.write('l')
+                else:
+                    df.write('r')
+            df.write('}\n')
         # retrieve column widths:
         widths = []
         for f in self.formats:
@@ -177,16 +200,19 @@ class DataTable:
             widths.append(int(f[i0:i1]))
         # top line:
         if top_line:
-            first = True
-            df.write(header_start.replace(' ', '-'))
-            for i in range(len(self.header)):
-                if not first:
-                    df.write('-'*len(header_sep))
-                first = False
-                df.write(header_close)
-                w = widths[i]
-                df.write(w*'-')
-            df.write(header_end.replace(' ', '-'))
+            if table_format[0] == 't':
+                df.write('  \\hline\n')
+            else:
+                first = True
+                df.write(header_start.replace(' ', '-'))
+                for i in range(len(self.header)):
+                    if not first:
+                        df.write('-'*len(header_sep))
+                    first = False
+                    df.write(header_close)
+                    w = widths[i]
+                    df.write(w*'-')
+                df.write(header_end.replace(' ', '-'))
         # section and column headers:
         nsec0 = 0
         if table_format[0] == 'm':
@@ -215,12 +241,16 @@ class DataTable:
                     if table_format[0] == 'h':
                         if columns>1:
                             df.write(' colspan="%d"' % columns)
+                    elif table_format[0] == 't':
+                        df.write('\\multicolumn{%d}{l}{' % columns)
                     df.write(header_close)
                     if format_width:
                         f = '%%-%ds' % sw
                         df.write(f % hs)
                     else:
                         df.write(hs)
+                    if table_format[0] == 't':
+                        df.write('}')
             df.write(header_end)
         # units:
         if units == "row":
@@ -231,11 +261,14 @@ class DataTable:
                     df.write(header_sep)
                 first = False
                 df.write(header_close)
-                if format_width:
-                    f = '%%-%ds' % widths[i]
-                    df.write(f % self.units[i])
+                if table_format[0] == 't':
+                    df.write('\\multicolumn{1}{l}{%s}' % self.units[i])
                 else:
-                    df.write(self.units[i])
+                    if format_width:
+                        f = '%%-%ds' % widths[i]
+                        df.write(f % self.units[i])
+                    else:
+                        df.write(self.units[i])
             df.write(header_end)
         # column numbers:
         if number_cols:
@@ -246,11 +279,14 @@ class DataTable:
                     df.write(header_sep)
                 first = False
                 df.write(header_close)
-                if format_width:
-                    f = '%%%dd' % widths[i]
-                    df.write(f % (i+1))
+                if table_format[0] == 't':
+                    df.write('\\multicolumn{1}{l}{%d}' % (i+1))
                 else:
-                    df.write("%d" % (i+1))
+                    if format_width:
+                        f = '%%%dd' % widths[i]
+                        df.write(f % (i+1))
+                    else:
+                        df.write("%d" % (i+1))
             df.write(header_end)
         # header line:
         if header_line:
@@ -263,6 +299,8 @@ class DataTable:
                     else:
                         df.write((w-1)*'-' + ':|')
                 df.write('\n')
+            elif table_format[0] == 't':
+                df.write('  \\hline\n')
             else:
                 first = True
                 df.write(header_start.replace(' ', '-'))
@@ -300,16 +338,19 @@ class DataTable:
             df.write(data_end)
         # bottom line:
         if bottom_line:
-            first = True
-            df.write(header_start.replace(' ', '-'))
-            for i in range(len(self.header)):
-                if not first:
-                    df.write('-'*len(header_sep))
-                first = False
-                df.write(header_close)
-                w = widths[i]
-                df.write(w*'-')
-            df.write(header_end.replace(' ', '-'))
+            if table_format[0] == 't':
+                df.write('  \\hline\n')
+            else:
+                first = True
+                df.write(header_start.replace(' ', '-'))
+                for i in range(len(self.header)):
+                    if not first:
+                        df.write('-'*len(header_sep))
+                    first = False
+                    df.write(header_close)
+                    w = widths[i]
+                    df.write(w*'-')
+                df.write(header_end.replace(' ', '-'))
         # end table:
         df.write(end_str)
             
