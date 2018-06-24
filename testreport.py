@@ -1,7 +1,3 @@
-# TODO
-# - testreport should extract CPU freq / governor / temperature / etc.
-
-
 import sys
 import argparse
 import math as m
@@ -47,16 +43,20 @@ class DataTable:
         self.setcol = col
 
     def adjust_columns(self):
-        for k, f in enumerate(self.formats):
+        for c, f in enumerate(self.formats):
             if f[-1] == 's':
-                w = 0
-                for v in self.data[k]:
+                # XXX do this for all formats:
+                w = int(f.lstrip('%-').rstrip('s'))
+                if w < len(self.header[c][0]):
+                    w = len(self.header[c][0])
+                # XXX this is specific for strings:
+                for v in self.data[c]:
                     if w < len(v):
                         w = len(v)
                 if f[1] == '-':
-                    self.formats[k] = '%%-%ds' % w
+                    self.formats[c] = '%%-%ds' % w
                 else:
-                    self.formats[k] = '%%%ds' % w
+                    self.formats[c] = '%%%ds' % w
 
     def col(self, label):
         ss = label.rstrip('>').split('>')
@@ -171,6 +171,24 @@ class DataTable:
             df.write('\n')
             
 
+def analyze_latencies(data):
+    coredata = data
+    if outlier > 0.0 :
+        l, m, h = np.percentile(data, [outlier, 50.0, 100.0-outlier])
+        coredata = data[(data>=l)&(data<=h)]
+    mean = np.mean(coredata)
+    std = np.std(coredata)
+    minv = np.min(data)
+    maxv = np.max(data)
+    return mean, std, maxv
+
+def analyze_overruns(data):
+    mean = np.mean(data)
+    minv = np.min(data)
+    maxv = np.max(data)
+    return mean, maxv
+
+
 init = 10
 outlier = 0.0  # percent
 
@@ -192,35 +210,61 @@ args = parser.parse_args()
 init = args.init[0]
 outlier = args.outlier[0]
 
-def analyze_latencies(data):
-    coredata = data
-    if outlier > 0.0 :
-        l, m, h = np.percentile(data, [outlier, 50.0, 100.0-outlier])
-        coredata = data[(data>=l)&(data<=h)]
-    mean = np.mean(coredata)
-    std = np.std(coredata)
-    minv = np.min(data)
-    maxv = np.max(data)
-    return mean, std, maxv
-
-def analyze_overruns(data):
-    mean = np.mean(data)
-    minv = np.min(data)
-    maxv = np.max(data)
-    return mean, maxv
-
 dt = DataTable()
 dt.add_section('data')
 dt.add_section('')
 dt.add_column('num', '1', '%3s')
-dt.add_column('param', '1', '%-20s')
+dt.add_column('kernel parameter', '1', '%-20s')
+dt.add_column('load', '1', '%-5s')
+dt.add_column('quality', '1', '%-7s')
+dt.add_column('cpuid', '1', '%-5s')
+dt.add_column('latency', '1', '%-4s')
+dt.add_column('performance', '1', '%-3s')
+dt.add_column('temp', 'C', '%5s')
+dt.add_column('freq', 'MHz', '%6s')
+dt.add_column('poll', '%', '%5s')
 
 for filename in args.file:
     with open(filename) as sf:
-        # gather data:
+        # dissect filename:
+        cols = filename.split('-')
+        kernel = '-'.join(cols[2:5])
+        host = cols[1]
+        num = cols[5]
+        date = '-'.join(cols[6:9])
+        quality = cols[-1]
+        load = cols[-2]
+        param = cols[9:-2]
+        cpuid='0'
+        latency='-'
+        performance='no'
+        remove = []
+        for p in param:
+            if p[0:3] == 'cpu':
+                cpuid = p[3:]
+                remove.append('cpu'+cpuid)
+            if p == 'nolatency':
+                latency='user'
+                remove.append(p)
+            if p == 'nocpulatency':
+                latency='cpu'
+                remove.append(p)
+            if p == 'nocpulatencyall':
+                latency='kern'
+                remove.append(p)
+            if p == 'performance':
+                performance='yes'
+                remove.append(p)
+        for r in remove:
+            param.remove(r)
+        param = '-'.join(param)
+
+        # gather test data:
         intest = False
         data = {}
         for line in sf:
+            if 'Loaded modules' in line:
+                break
             if 'test:' in line:
                 intest = True
                 tests = line.split()[0]
@@ -248,16 +292,53 @@ for filename in args.file:
                         latencies.append(int(cols[3])-int(cols[1]))
                         jitterfast.append(int(cols[4]))
                         jitterslow.append(int(cols[5]))
-    
-        # dissect filename:
-        cols = filename.split('-')
-        kernel = '-'.join(cols[2:5])
-        host = cols[1]
-        num = cols[5]
-        date = '-'.join(cols[6:9])
-        param = '-'.join(cols[9:])
+
+        # gather other data:
+        coretemp='-'
+        cpufreq='-'
+        poll='-'
+        inenvironment=False
+        incputopology=False
+        incputemperatures=False
+        for line in sf:
+            if 'Environment' in line:
+                inenvironment=True
+            if inenvironment:
+                if "tests run on cpu" in line:
+                    cpuid=line.split(':')[1].strip()
+                if line.strip() == '':
+                    inenvironment=False
+            if 'CPU topology' in line:
+                incputopology=True
+            if incputopology:
+                if 'cpu'+cpuid in line:
+                    cols=line.split()
+                    if len(cols) >= 5:
+                        cpufreq = cols[4].strip()
+                    if len(cols) >= 9:
+                        poll = cols[8].strip().rstrip('%')
+                if line.strip() == '':
+                    incputopology=False
+            if 'CPU core temperatures' in line:
+                incputemperatures=True
+            if incputemperatures:
+                if 'Core '+cpuid in line:
+                    coretemp=line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C')
+                if line.strip() == '':
+                    incputemperatures=False
+
+        # fill table:                    
         dt.add_value(num, dt.col('data>num'))
-        dt.add_value(param, dt.col('data>param'))
+        dt.add_value(param, dt.col('data>kernel parameter'))
+        dt.add_value(load, dt.col('data>load'))
+        dt.add_value(quality, dt.col('data>quality'))
+        
+        dt.add_value('cpu'+cpuid, dt.col('data>cpuid'))
+        dt.add_value(latency, dt.col('data>latency'))
+        dt.add_value(performance, dt.col('data>performance'))
+        dt.add_value(coretemp, dt.col('data>temp'))
+        dt.add_value(cpufreq, dt.col('data>freq'))
+        dt.add_value(poll, dt.col('data>poll'))
 
         # analyze:
         for testmode in ['kern', 'kthreads', 'user']:
