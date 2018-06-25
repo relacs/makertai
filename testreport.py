@@ -463,6 +463,8 @@ def parse_filename(filename, dt):
     return cpuid
 
 def analyze_latencies(data, outlier):
+    if len(data) == 0:
+        return  float('NaN'),  float('NaN'), float('NaN')
     coredata = data
     if outlier > 0.0 :
         l, m, h = np.percentile(data, [outlier, 50.0, 100.0-outlier])
@@ -474,6 +476,8 @@ def analyze_latencies(data, outlier):
     return mean, std, maxv
 
 def analyze_overruns(data):
+    if len(data) == 0:
+        return  [float('NaN')]
     mean = np.mean(data)
     minv = np.min(data)
     maxv = np.max(data)
@@ -526,7 +530,7 @@ def main():
     dt.add_column('latency', '1', '%-4s')
     dt.add_column('performance', '1', '%-3s')
     dt.add_column('temp', 'C', '%5.1f')
-    dt.add_column('freq', 'MHz', '%6.3f')
+    dt.add_column('freq', 'GHz', '%6.3f')
     dt.add_column('poll', '%', '%5.1f')
 
     # list files:
@@ -586,38 +590,38 @@ def main():
                             jitterslow.append(int(cols[5]))
 
             # gather other data:
-            coretemp='-'
-            cpufreq='-'
-            poll=float('NaN')
-            inenvironment=False
-            incputopology=False
-            incputemperatures=False
+            coretemp = float('NaN')
+            cpufreq = float('NaN')
+            poll = float('NaN')
+            inenvironment = False
+            incputopology = False
+            incputemperatures = False
             for line in sf:
                 if 'Environment' in line:
-                    inenvironment=True
+                    inenvironment = True
                 if inenvironment:
                     if "tests run on cpu" in line:
-                        cpuid=line.split(':')[1].strip()
+                        cpuid = line.split(':')[1].strip()
                     if line.strip() == '':
-                        inenvironment=False
+                        inenvironment = False
                 if 'CPU topology' in line:
-                    incputopology=True
+                    incputopology = True
                 if incputopology:
                     if 'cpu'+cpuid in line:
-                        cols=line.split()
+                        cols = line.split()
                         if len(cols) >= 5:
                             cpufreq = float(cols[4].strip())
                         if len(cols) >= 9:
                             poll = float(cols[8].strip().rstrip('%'))
                     if line.strip() == '':
-                        incputopology=False
+                        incputopology = False
                 if 'CPU core temperatures' in line:
-                    incputemperatures=True
+                    incputemperatures = True
                 if incputemperatures:
                     if 'Core '+cpuid in line:
-                        coretemp=float(line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C'))
+                        coretemp = float(line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C'))
                     if line.strip() == '':
-                        incputemperatures=False
+                        incputemperatures = False
 
             # fill table:                    
             dt.add_value('cpu'+cpuid, dt.col('data>cpuid'))

@@ -746,16 +746,16 @@ function print_environment {
     CPUFREQGOVERNOR="-"
     test -r $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
     echo "  governor            : $CPUFREQGOVERNOR"
-    CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$(($CPU_ID+1)) {print \$2}")
+    CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$(($CPU_ID+1)) {printf \"%.3f\", 0.001*\$2}")
     test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
-    echo "  cpu frequency       : $CPUFREQ"
+    echo "  cpu frequency       : $CPUFREQ GHz"
     if test -r $CPU/cpufreq/scaling_max_freq; then
 	CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_max_freq)/1000000.0 | bc)
-	echo "  max cpu frequency   : $CPUFREQ"
+	echo "  max cpu frequency   : $CPUFREQ GHz"
     fi
     if test -r $CPU/cpufreq/scaling_min_freq; then
 	CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_min_freq)/1000000.0 | bc)
-	echo "  min cpu frequency   : $CPUFREQ"
+	echo "  min cpu frequency   : $CPUFREQ GHz"
     fi
 
     echo
@@ -790,7 +790,7 @@ function print_cpus {
     printf "\n"
 
     # second header line:
-    printf "logical  socket  core  online  freq/MHz      governor  transitions"
+    printf "logical  socket  core  online  freq/GHz      governor  transitions"
     if test -r /sys/devices/system/cpu/cpu0/cpuidle/state0/name; then
 	for CSTATE in /sys/devices/system/cpu/cpu0/cpuidle/state*/name; do
 	    printf "  %-7s" $(cat $CSTATE)
@@ -800,30 +800,30 @@ function print_cpus {
 
     # data:
     store_cpus 1
-    CPU_ID=0
+    CPU_NO=0
     for CPU in /sys/devices/system/cpu/cpu[0-9]*; do
-	let CPU_ID+=1
+	let CPU_NO+=1
 	CPUT="$CPU/topology"
 	LC_NUMERIC="en_US.UTF-8"
 	ONLINE=1
 	test -r $CPU/online && ONLINE=$(cat $CPU/online)
-	CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$CPU_ID {print \$2}")
+	CPUFREQ=$(grep 'cpu MHz' /proc/cpuinfo | awk -F ': ' "NR==$CPU_NO {printf \"%.3f\", 0.001*\$2}")
 	test -r $CPU/cpufreq/scaling_cur_freq && CPUFREQ=$(echo "scale=3;" $(cat $CPU/cpufreq/scaling_cur_freq)/1000000.0 | bc)
 	CPUFREQGOVERNOR="-"
 	test -r $CPU/cpufreq/scaling_governor && CPUFREQGOVERNOR=$(cat $CPU/cpufreq/scaling_governor)
 	CPUFREQTRANS="n.a."
 	if test -r results-cpufreq1.dat; then
-	    CPUFREQTRANS=$(sed -n -e "${CPU_ID}p" results-cpufreq1.dat)
+	    CPUFREQTRANS=$(sed -n -e "${CPU_NO}p" results-cpufreq1.dat)
 	    if test -r results-cpufreq0.dat; then
-		CF0=$(sed -n -e "${CPU_ID}p" results-cpufreq0.dat)
+		CF0=$(sed -n -e "${CPU_NO}p" results-cpufreq0.dat)
 		let CPUFREQTRANS-=$CF0
 	    fi
 	fi
 	printf "  cpu%-2d  %6d  %4d  %6d  %8.3f  %12s  %11s" ${CPU#/sys/devices/system/cpu/cpu} $(cat $CPUT/physical_package_id) $(cat $CPUT/core_id) $ONLINE $CPUFREQ $CPUFREQGOVERNOR $CPUFREQTRANS
 	if test -r results-cpuidle1.dat; then
-	    CPUIDLETRANS=($(sed -n -e "${CPU_ID}p" results-cpuidle1.dat))
+	    CPUIDLETRANS=($(sed -n -e "${CPU_NO}p" results-cpuidle1.dat))
 	    if test -r results-cpuidle0.dat; then
-		CI0=($(sed -n -e "${CPU_ID}p" results-cpuidle0.dat))
+		CI0=($(sed -n -e "${CPU_NO}p" results-cpuidle0.dat))
 		for (( i=0; i<${#CPUIDLETRANS[@]}; ++i )); do
 		    let CPUIDLETRANS[$i]-=${CI0[$i]}
 		done
@@ -872,8 +872,8 @@ function print_cpus {
 
     echo "CPU (/proc/cpuinfo):"
     echo "  $(grep "model name" /proc/cpuinfo | awk -F '\t:[ ]*' 'NR==1 { printf "%-17s : %s", $1, $2}')"
-    echo "  number of CPUs    : $CPU_ID"
-    test "MAXCPUFREQ" != "n.a." && echo "  max CPU frequency : $MAXCPUFREQ MHz"
+    echo "  number of CPUs    : $CPU_NO"
+    test "MAXCPUFREQ" != "n.a." && echo "  max CPU frequency : $MAXCPUFREQ GHz"
     echo "  CPU family        : $(grep "cpu family" /proc/cpuinfo | awk 'NR==1 { print $4}')"
     echo "  machine (uname -m): $MACHINE"
     echo "  memory (free -h)  : $(free -h | grep Mem | awk '{print $2}') RAM"
@@ -2206,7 +2206,6 @@ function test_kernel {
     # set CPU freq governor:
     if $CPUGOVERNOR; then
 	GOVERNOR=""
-	SCALING_GOVERNOR="/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
 	SCALING_GOVERNOR="/sys/devices/system/cpu/cpu${CPU_ID}/cpufreq/scaling_governor"
 	if test -r $SCALING_GOVERNOR; then
 	    echo_log "Set cpu freq performance governor for CPU ${CPU_ID} ."
