@@ -536,7 +536,7 @@ def main():
     # list files:
     files = []
     if len(args.file) == 0:
-        files = glob.glob('latencies-*')
+        files = sorted(glob.glob('latencies-*'))
     else:
         for filename in args.file:
             if filename == 'avg':
@@ -546,7 +546,7 @@ def main():
             elif os.path.isfile(filename):
                 files.append(filename)
             elif os.path.isdir(filename):
-                files.extend(glob.glob(os.path.join(filename, 'latencies-*')))
+                files.extend(sorted(glob.glob(os.path.join(filename, 'latencies-*'))))
             else:
                 print('file "' + filename + '" does not exist.')
     # analyze files:
