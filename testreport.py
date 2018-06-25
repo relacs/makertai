@@ -13,6 +13,7 @@ class DataTable:
         self.units = []
         self.formats = []
         self.setcol = 0
+        self.indices = None
 
     def add_section(self, label):
         if self.setcol >= len(self.data):
@@ -95,10 +96,10 @@ class DataTable:
         return self.col(label) is not None
 
     def add_value(self, val, col=None):
+        if col is not None and not isinstance(col, int):
+            col = self.col(col)
         if col is None:
             col = self.setcol
-        # elif col is string:
-        # col = self.col(col) # check None return value
         self.data[col].append(val)
         self.setcol = col+1
 
@@ -117,6 +118,17 @@ class DataTable:
         for c in range(len(self.data)):
             while len(self.data[c]) < r:
                 self.data[c].append(float('NaN'))
+
+    def sort(self, column):
+        if not isinstance(column, int):
+            if column.isdigit():
+                column = int(column)
+            else:
+                column = self.col(column)
+                if column is None:
+                    column = -1
+        if column >= 0:
+            self.indices = sorted(range(len(self.data[column])), key=self.data[column].__getitem__)
 
     def write(self, df, table_format='dat', units="row", number_cols=False):
         # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
@@ -363,7 +375,9 @@ class DataTable:
                     df.write(w*'-')
                 df.write(header_end.replace(' ', '-'))
         # data:
-        for k in range(len(self.data[0])):
+        if self.indices is None or len(self.indices) != len(self.data[0]):
+            self.indices = range(len(self.data[0]))
+        for k in self.indices:
             first = True
             df.write(data_start)
             for c, f in enumerate(self.formats):
@@ -469,6 +483,7 @@ def analyze_overruns(data):
 def main():
     init = 10
     outlier = 0.0  # percent
+    sort_col = '-1'
     number_cols = False
     table_format = 'dat'
 
@@ -483,6 +498,9 @@ def main():
     parser.add_argument('-p', nargs=1, default=[outlier],
                         type=float, metavar='PERCENT', dest='outlier',
                         help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
+    parser.add_argument('-s', nargs=1, default=[sort_col],
+                        type=str, metavar='COLUMN', dest='sort_col',
+                        help='sort results according to COLUMN')
     parser.add_argument('-f', nargs=1, default=[table_format],
                         type=str, metavar='FORMAT', dest='table_format',
                         help='output format of summary table (defaults to {0:s}%%)'.format(table_format))
@@ -496,6 +514,7 @@ def main():
     outlier = args.outlier[0]
     number_cols = args.number_cols
     table_format = args.table_format[0]
+    sort_col = args.sort_col[0]
 
     dt = DataTable()
     dt.add_section('data')
@@ -506,9 +525,9 @@ def main():
     dt.add_column('cpuid', '1', '%-5s')
     dt.add_column('latency', '1', '%-4s')
     dt.add_column('performance', '1', '%-3s')
-    dt.add_column('temp', 'C', '%5s')
-    dt.add_column('freq', 'MHz', '%6s')
-    dt.add_column('poll', '%', '%5s')
+    dt.add_column('temp', 'C', '%5.1f')
+    dt.add_column('freq', 'MHz', '%6.3f')
+    dt.add_column('poll', '%', '%5.1f')
 
     # list files:
     files = []
@@ -565,7 +584,7 @@ def main():
             # gather other data:
             coretemp='-'
             cpufreq='-'
-            poll='-'
+            poll=float('NaN')
             inenvironment=False
             incputopology=False
             incputemperatures=False
@@ -583,16 +602,16 @@ def main():
                     if 'cpu'+cpuid in line:
                         cols=line.split()
                         if len(cols) >= 5:
-                            cpufreq = cols[4].strip()
+                            cpufreq = float(cols[4].strip())
                         if len(cols) >= 9:
-                            poll = cols[8].strip().rstrip('%')
+                            poll = float(cols[8].strip().rstrip('%'))
                     if line.strip() == '':
                         incputopology=False
                 if 'CPU core temperatures' in line:
                     incputemperatures=True
                 if incputemperatures:
                     if 'Core '+cpuid in line:
-                        coretemp=line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C')
+                        coretemp=float(line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C'))
                     if line.strip() == '':
                         incputemperatures=False
 
@@ -626,6 +645,11 @@ def main():
 
     # write results:
     dt.adjust_columns()
+    if sort_col == 'avg':
+        sort_col = 'kern latency>mean jitter'
+    elif sort_col == 'max':
+        sort_col = 'kern latency>max'
+    dt.sort(sort_col)
     dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
 
 
