@@ -3025,6 +3025,10 @@ function restore_test_batch {
 }
 
 function test_report {
+    if test -r testreport.py; then
+	python testreport.py $@
+	return
+    fi
     SORT=false
     SORTCOL=5
     if test "x$1" = "xavg"; then

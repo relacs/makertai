@@ -535,7 +535,11 @@ def main():
         files = glob.glob('latencies-*')
     else:
         for filename in args.file:
-            if os.path.isfile(filename):
+            if filename == 'avg':
+                sort_col = 'avg'
+            elif filename == 'max':
+                sort_col = 'max'
+            elif os.path.isfile(filename):
                 files.append(filename)
             elif os.path.isdir(filename):
                 files.extend(glob.glob(os.path.join(filename, 'latencies-*')))
