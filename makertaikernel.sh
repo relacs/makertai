@@ -717,8 +717,7 @@ function print_kernel {
 }
 
 function print_environment {
-    CPU_ID=0
-    test -n "$1" && CPU_ID=$1
+    CPU_ID=$1
 
     echo "Environment:"
     echo "  tests run on cpu    : ${CPU_ID}"
@@ -1010,8 +1009,8 @@ function print_config {
 }
 
 function print_kernel_info {
-    CPUDATA="$1"
-    CPU_ID="$2"
+    CPU_ID="$1"
+    CPUDATA="$2"
     echo
     echo "Loaded modules (lsmod):"
     if test -r lsmod.dat; then
@@ -1941,7 +1940,7 @@ function test_save {
 		fi
 	    done
 	done
-	print_kernel_info $CPUDATA $CPU_ID
+	print_kernel_info $CPU_ID $CPUDATA
 	echo
 	if test "x$HARDWARE" == "xhardware" && lshw -version &> /dev/null; then
 	    echo "Hardware (lshw):"
@@ -2143,12 +2142,12 @@ function test_kernel {
     done
 
     # add CPU mask:
+    CPU_ID=0
     if test -n "$CPUIDS"; then
-	NAME="${NAME}-cpu${CPUIDS%%,*}"
+	CPU_ID=${CPUIDS%%,*}
+	NAME="${NAME}-cpu${CPU_ID}"
 	setup_rtai "$CPUIDS"
     fi
-    CPU_ID=0
-    test -n "$CPUIDS" && CPU_ID=${CPUIDS%%,*}
 
     echo_log
     TESTED=""
@@ -2176,7 +2175,7 @@ function test_kernel {
 	    make clean
 	    make
 	    CPU_IDP=""
-	    ! $CPULATENCYALL && test -n "$CPUIDS" && CPU_IDP="cpu_id=${CPUIDS%%,*}"
+	    ! $CPULATENCYALL && test -n "$CPUIDS" && CPU_IDP="cpu_id=${CPU_ID}"
 	    if insmod cpulatency.ko $CPU_IDP; then
 		sleep 1
 		CPUID=$(grep -a cpulatency /var/log/messages | tail -n 1 | sed -e 's/^.*CPU=//')
@@ -3644,6 +3643,7 @@ function setup_rtai {
 	    if ! test -f latency-module.c.mrk; then
 		echo_log "Save original kern/latency test"
 		cp latency-module.c latency-module.c.mrk
+		sync
 	    fi
 	    sed -e "s/#define RUNNABLE_ON_CPUS 3/#define RUNNABLE_ON_CPUS $CPUMASK/" latency-module.c.mrk > latency-module.c
 	    echo_log "Rebuild kern/latency test"
@@ -3660,7 +3660,9 @@ function restore_rtai {
 	echo_log "Restore original RTAI testsuite."
 	if ! $DRYRUN; then
 	    cd ${LOCAL_SRC_PATH}/$RTAI_DIR/testsuite/kern/latency
-	    mv latency-module.c.mrk latency-module.c
+	    cp latency-module.c.mrk latency-module.c
+	    rm latency-module.c.mrk
+	    sync
 	    echo_log "Rebuild kern/latency test"
 	    touch latency-module.c
 	    make
@@ -4345,7 +4347,7 @@ function info_all {
 	RTAI_PATCH="$ORIG_RTAI_PATCH"
 	rm -f lsmod.dat
 	rm -f results-cpu?????.dat
-	print_kernel_info
+	print_kernel_info 0
 	rm -f results-cpu?????.dat
     else
 
