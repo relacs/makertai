@@ -1777,10 +1777,13 @@ function test_result {
     TEST_RESULT=""
     if test -n "$TESTMODE" && test -f "results-${TESTMODE}-latency.dat"; then
 	N_DATA=$(grep RTD results-${TESTMODE}-latency.dat | wc -l)
-	LINE=20
-	test "$N_DATA" -lt 60 && LINE=10
-	test "$N_DATA" -lt 20 && LINE=1
-	read LATENCY OVERRUNS < <(awk -F '\\|[ ]*' "/RTD/ {
+	if test $N_DATA -lt 1; then
+	    TEST_RESULT="failed"
+	else
+	    LINE=20
+	    test "$N_DATA" -lt 60 && LINE=10
+	    test "$N_DATA" -lt 20 && LINE=1
+	    read LATENCY OVERRUNS < <(awk -F '\\|[ ]*' "/RTD/ {
             nd++
             if ( nd == $LINE ) {
                 overruns0 = \$7
@@ -1793,17 +1796,18 @@ function test_result {
                     maxjitter = jitter }
             } 
         } END {printf(\"%.0f %d\n\", maxjitter, overruns1-overruns0)}" results-${TESTMODE}-latency.dat)
-	if test "$OVERRUNS" -gt "0"; then
-	    TEST_RESULT="failed"
-	else
-	    if test "$LATENCY" -gt 20000; then
-		TEST_RESULT="bad"
-	    elif test "$LATENCY" -gt 10000; then
-		TEST_RESULT="ok"
-	    elif test "$LATENCY" -gt 2000; then
-		TEST_RESULT="good"
+	    if test "$OVERRUNS" -gt "0"; then
+		TEST_RESULT="failed"
 	    else
-		TEST_RESULT="perfect"
+		if test "$LATENCY" -gt 20000; then
+		    TEST_RESULT="bad"
+		elif test "$LATENCY" -gt 10000; then
+		    TEST_RESULT="ok"
+		elif test "$LATENCY" -gt 2000; then
+		    TEST_RESULT="good"
+		else
+		    TEST_RESULT="perfect"
+		fi
 	    fi
 	fi
     else

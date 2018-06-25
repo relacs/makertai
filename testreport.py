@@ -1,4 +1,6 @@
 import sys
+import os
+import glob
 import argparse
 import math as m
 import numpy as np
@@ -401,9 +403,52 @@ class DataTable:
                 df.write(header_end.replace(' ', '-'))
         # end table:
         df.write(end_str)
-            
 
-def analyze_latencies(data):
+                    
+def parse_filename(filename, dt):
+    # dissect filename:
+    cols = filename.split('-')
+    kernel = '-'.join(cols[2:5])
+    host = cols[1]
+    num = cols[5]
+    date = '-'.join(cols[6:9])
+    quality = cols[-1]
+    load = cols[-2]
+    param = cols[9:-2]
+    cpuid='0'
+    latency='-'
+    performance='no'
+    remove = []
+    for p in param:
+        if p[0:3] == 'cpu':
+            cpuid = p[3:]
+            remove.append('cpu'+cpuid)
+        if p == 'nolatency':
+            latency='user'
+            remove.append(p)
+        if p == 'nocpulatency':
+            latency='cpu'
+            remove.append(p)
+        if p == 'nocpulatencyall':
+            latency='kern'
+            remove.append(p)
+        if p == 'performance':
+            performance='yes'
+            remove.append(p)
+    for r in remove:
+        param.remove(r)
+    param = '-'.join(param)
+
+    dt.add_value(num, dt.col('data>num'))
+    dt.add_value(param, dt.col('data>kernel parameter'))
+    dt.add_value(load, dt.col('data>load'))
+    dt.add_value(quality, dt.col('data>quality'))
+    dt.add_value(latency, dt.col('data>latency'))
+    dt.add_value(performance, dt.col('data>performance'))
+
+    return cpuid
+
+def analyze_latencies(data, outlier):
     coredata = data
     if outlier > 0.0 :
         l, m, h = np.percentile(data, [outlier, 50.0, 100.0-outlier])
@@ -421,191 +466,171 @@ def analyze_overruns(data):
     return [maxv]
 
 
-init = 10
-outlier = 0.0  # percent
+def main():
+    init = 10
+    outlier = 0.0  # percent
+    number_cols = False
+    table_format = 'dat'
 
-number_cols = False
-table_format = 'dat'
+    # command line arguments:
+    parser = argparse.ArgumentParser(
+        description='Analyse RTAI test results.',
+        epilog='by Jan Benda (2018)')
+    parser.add_argument('--version', action='version', version="1.0")
+    parser.add_argument('-i', nargs=1, default=[init],
+                        type=int, metavar='LINES', dest='init',
+                        help='number of initial lines to be skipped (defaults to {0:d})'.format(init))
+    parser.add_argument('-p', nargs=1, default=[outlier],
+                        type=float, metavar='PERCENT', dest='outlier',
+                        help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
+    parser.add_argument('-f', nargs=1, default=[table_format],
+                        type=str, metavar='FORMAT', dest='table_format',
+                        help='output format of summary table (defaults to {0:s}%%)'.format(table_format))
+    parser.add_argument('-n', dest='number_cols', action='store_true',
+                        help='add line with column numbers to header')
+    parser.add_argument('file', nargs='*', default='', type=str,
+                        help='latency-* file with RTAI test results')
+    args = parser.parse_args()
 
+    init = args.init[0]
+    outlier = args.outlier[0]
+    number_cols = args.number_cols
+    table_format = args.table_format[0]
 
-# command line arguments:
-parser = argparse.ArgumentParser(
-    description='Analyse RTAI test results.',
-    epilog='by Jan Benda (2018)')
-parser.add_argument('--version', action='version', version="1.0")
-parser.add_argument('-i', nargs=1, default=[init],
-                    type=int, metavar='LINES', dest='init',
-                    help='number of initial lines to be skipped (defaults to {0:d})'.format(init))
-parser.add_argument('-p', nargs=1, default=[outlier],
-                    type=float, metavar='PERCENT', dest='outlier',
-                    help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
-parser.add_argument('-f', nargs=1, default=[table_format],
-                    type=str, metavar='FORMAT', dest='table_format',
-                    help='output format of summary table (defaults to {0:s}%%)'.format(table_format))
-parser.add_argument('-n', dest='number_cols', action='store_true', help='add line with column numbers to header')
-parser.add_argument('file', nargs='*', default='', type=str,
-                    help='latency-* file with RTAI test results')
-args = parser.parse_args()
+    dt = DataTable()
+    dt.add_section('data')
+    dt.add_column('num', '1', '%3s')
+    dt.add_column('kernel parameter', '1', '%-20s')
+    dt.add_column('load', '1', '%-5s')
+    dt.add_column('quality', '1', '%-7s')
+    dt.add_column('cpuid', '1', '%-5s')
+    dt.add_column('latency', '1', '%-4s')
+    dt.add_column('performance', '1', '%-3s')
+    dt.add_column('temp', 'C', '%5s')
+    dt.add_column('freq', 'MHz', '%6s')
+    dt.add_column('poll', '%', '%5s')
 
-init = args.init[0]
-outlier = args.outlier[0]
-number_cols = args.number_cols
-table_format = args.table_format[0]
+    # list files:
+    files = []
+    if len(args.file) == 0:
+        files = glob.glob('latencies-*')
+    else:
+        for filename in args.file:
+            if os.path.isfile(filename):
+                files.append(filename)
+            elif os.path.isdir(filename):
+                files.extend(glob.glob(os.path.join(filename, 'latencies-*')))
+            else:
+                print('file "' + filename + '" does not exist.')
+    # analyze files:
+    for filename in files:
+        with open(filename) as sf:
+            
+            cpuid = parse_filename(filename, dt)
 
-dt = DataTable()
-dt.add_section('data')
-dt.add_column('num', '1', '%3s')
-dt.add_column('kernel parameter', '1', '%-20s')
-dt.add_column('load', '1', '%-5s')
-dt.add_column('quality', '1', '%-7s')
-dt.add_column('cpuid', '1', '%-5s')
-dt.add_column('latency', '1', '%-4s')
-dt.add_column('performance', '1', '%-3s')
-dt.add_column('temp', 'C', '%5s')
-dt.add_column('freq', 'MHz', '%6s')
-dt.add_column('poll', '%', '%5s')
-
-for filename in args.file:
-    with open(filename) as sf:
-        # dissect filename:
-        cols = filename.split('-')
-        kernel = '-'.join(cols[2:5])
-        host = cols[1]
-        num = cols[5]
-        date = '-'.join(cols[6:9])
-        quality = cols[-1]
-        load = cols[-2]
-        param = cols[9:-2]
-        cpuid='0'
-        latency='-'
-        performance='no'
-        remove = []
-        for p in param:
-            if p[0:3] == 'cpu':
-                cpuid = p[3:]
-                remove.append('cpu'+cpuid)
-            if p == 'nolatency':
-                latency='user'
-                remove.append(p)
-            if p == 'nocpulatency':
-                latency='cpu'
-                remove.append(p)
-            if p == 'nocpulatencyall':
-                latency='kern'
-                remove.append(p)
-            if p == 'performance':
-                performance='yes'
-                remove.append(p)
-        for r in remove:
-            param.remove(r)
-        param = '-'.join(param)
-
-        # gather test data:
-        intest = False
-        data = {}
-        for line in sf:
-            if 'Loaded modules' in line:
-                break
-            if 'test:' in line:
-                intest = True
-                tests = line.split()[0]
-                testmode, testtype = tests.split('/')
-                latencies = []
-                overruns = []
-                jitterfast = []
-                jitterslow = []
-            if '------------' in line:
-                intest = False
-                if testtype == 'latency':
-                    data[testmode, testtype, 'latencies'] = np.array(latencies)
-                    data[testmode, testtype, 'overruns'] = np.array(overruns)
-                elif testtype == 'preempt':
-                    data[testmode, testtype, 'latencies'] = np.array(latencies)
-                    data[testmode, testtype, 'jitterfast'] = np.array(jitterfast)
-                    data[testmode, testtype, 'jitterslow'] = np.array(jitterslow)
-            if intest:
-                cols = line.split('|')
-                if cols[0] == 'RTD':
+            # gather test data:
+            intest = False
+            data = {}
+            for line in sf:
+                if 'Loaded modules' in line:
+                    break
+                if 'test:' in line:
+                    intest = True
+                    tests = line.split()[0]
+                    testmode, testtype = tests.split('/')
+                    latencies = []
+                    overruns = []
+                    jitterfast = []
+                    jitterslow = []
+                if '------------' in line:
+                    intest = False
                     if testtype == 'latency':
-                        latencies.append(int(cols[4])-int(cols[1]))
-                        overruns.append(int(cols[6]))
+                        data[testmode, testtype, 'latencies'] = np.array(latencies)
+                        data[testmode, testtype, 'overruns'] = np.array(overruns)
                     elif testtype == 'preempt':
-                        latencies.append(int(cols[3])-int(cols[1]))
-                        jitterfast.append(int(cols[4]))
-                        jitterslow.append(int(cols[5]))
+                        data[testmode, testtype, 'latencies'] = np.array(latencies)
+                        data[testmode, testtype, 'jitterfast'] = np.array(jitterfast)
+                        data[testmode, testtype, 'jitterslow'] = np.array(jitterslow)
+                if intest:
+                    cols = line.split('|')
+                    if cols[0] == 'RTD':
+                        if testtype == 'latency':
+                            latencies.append(int(cols[4])-int(cols[1]))
+                            overruns.append(int(cols[6]))
+                        elif testtype == 'preempt':
+                            latencies.append(int(cols[3])-int(cols[1]))
+                            jitterfast.append(int(cols[4]))
+                            jitterslow.append(int(cols[5]))
 
-        # gather other data:
-        coretemp='-'
-        cpufreq='-'
-        poll='-'
-        inenvironment=False
-        incputopology=False
-        incputemperatures=False
-        for line in sf:
-            if 'Environment' in line:
-                inenvironment=True
-            if inenvironment:
-                if "tests run on cpu" in line:
-                    cpuid=line.split(':')[1].strip()
-                if line.strip() == '':
-                    inenvironment=False
-            if 'CPU topology' in line:
-                incputopology=True
-            if incputopology:
-                if 'cpu'+cpuid in line:
-                    cols=line.split()
-                    if len(cols) >= 5:
-                        cpufreq = cols[4].strip()
-                    if len(cols) >= 9:
-                        poll = cols[8].strip().rstrip('%')
-                if line.strip() == '':
-                    incputopology=False
-            if 'CPU core temperatures' in line:
-                incputemperatures=True
-            if incputemperatures:
-                if 'Core '+cpuid in line:
-                    coretemp=line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C')
-                if line.strip() == '':
-                    incputemperatures=False
+            # gather other data:
+            coretemp='-'
+            cpufreq='-'
+            poll='-'
+            inenvironment=False
+            incputopology=False
+            incputemperatures=False
+            for line in sf:
+                if 'Environment' in line:
+                    inenvironment=True
+                if inenvironment:
+                    if "tests run on cpu" in line:
+                        cpuid=line.split(':')[1].strip()
+                    if line.strip() == '':
+                        inenvironment=False
+                if 'CPU topology' in line:
+                    incputopology=True
+                if incputopology:
+                    if 'cpu'+cpuid in line:
+                        cols=line.split()
+                        if len(cols) >= 5:
+                            cpufreq = cols[4].strip()
+                        if len(cols) >= 9:
+                            poll = cols[8].strip().rstrip('%')
+                    if line.strip() == '':
+                        incputopology=False
+                if 'CPU core temperatures' in line:
+                    incputemperatures=True
+                if incputemperatures:
+                    if 'Core '+cpuid in line:
+                        coretemp=line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C')
+                    if line.strip() == '':
+                        incputemperatures=False
 
-        # fill table:                    
-        dt.add_value(num, dt.col('data>num'))
-        dt.add_value(param, dt.col('data>kernel parameter'))
-        dt.add_value(load, dt.col('data>load'))
-        dt.add_value(quality, dt.col('data>quality'))
-        
-        dt.add_value('cpu'+cpuid, dt.col('data>cpuid'))
-        dt.add_value(latency, dt.col('data>latency'))
-        dt.add_value(performance, dt.col('data>performance'))
-        dt.add_value(coretemp, dt.col('data>temp'))
-        dt.add_value(cpufreq, dt.col('data>freq'))
-        dt.add_value(poll, dt.col('data>poll'))
+            # fill table:                    
+            dt.add_value('cpu'+cpuid, dt.col('data>cpuid'))
+            dt.add_value(coretemp, dt.col('data>temp'))
+            dt.add_value(cpufreq, dt.col('data>freq'))
+            dt.add_value(poll, dt.col('data>poll'))
 
-        # analyze:
-        for testmode in ['kern', 'kthreads', 'user']:
-            if (testmode, 'latency', 'latencies') in data:
-                # provide columns:
-                if not dt.exist(testmode+' latency'):
-                    dt.add_section('kern latency')
-                    dt.add_column('mean jitter', 'ns', '%7.0f')
-                    dt.add_column('stdev', 'ns', '%7.0f')
-                    dt.add_column('max', 'ns', '%7.0f')
-                    dt.add_column('overruns', '1', '%6.0f')
-                # analyze latency test:
-                latencies = data[testmode, 'latency', 'latencies']
-                overruns = data[testmode, 'latency', 'overruns']
-                overruns = np.diff(overruns)
-                dt.add_data(analyze_latencies(latencies[init:]), dt.col(testmode+' latency>mean jitter'))
-                dt.add_data(analyze_overruns(overruns[init:]), dt.col(testmode+' latency>overruns'))
-            elif (testmode, 'preempt', 'latencies') in data:
-                # analyze preempt test:
-                #print np.mean(data[testmode, 'latency', 'latencies'])
-                pass
-        dt.fill_data()
+            # analyze:
+            for testmode in ['kern', 'kthreads', 'user']:
+                if (testmode, 'latency', 'latencies') in data:
+                    # provide columns:
+                    if not dt.exist(testmode+' latency'):
+                        dt.add_section('kern latency')
+                        dt.add_column('mean jitter', 'ns', '%7.0f')
+                        dt.add_column('stdev', 'ns', '%7.0f')
+                        dt.add_column('max', 'ns', '%7.0f')
+                        dt.add_column('overruns', '1', '%6.0f')
+                    # analyze latency test:
+                    latencies = data[testmode, 'latency', 'latencies']
+                    overruns = data[testmode, 'latency', 'overruns']
+                    overruns = np.diff(overruns)
+                    dt.add_data(analyze_latencies(latencies[init:], outlier), dt.col(testmode+' latency>mean jitter'))
+                    dt.add_data(analyze_overruns(overruns[init:]), dt.col(testmode+' latency>overruns'))
+                elif (testmode, 'preempt', 'latencies') in data:
+                    # analyze preempt test:
+                    #print np.mean(data[testmode, 'latency', 'latencies'])
+                    pass
+            dt.fill_data()
 
-# write results:
-dt.adjust_columns()
-dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
+    # write results:
+    dt.adjust_columns()
+    dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
+
+
+if __name__ == '__main__':
+    main()
 
 # latency:
 #RTH|    lat min|    ovl min|    lat avg|    lat max|    ovl max|   overruns
