@@ -2137,7 +2137,7 @@ function test_kernel {
     # unload already loaded comedi kernel modules:
     remove_comedi_modules
     # unload already loaded rtai kernel modules:
-    for MOD in msg mbx sem math sched hal; do
+    for MOD in msg mbx fifo sem math sched hal; do
 	lsmod | grep -q rtai_$MOD && { rmmod rtai_$MOD && echo_log "removed already loaded rtai_$MOD"; }
     done
 
@@ -2420,7 +2420,7 @@ function test_kernel {
     done
 
     # clean up RTAI modules:
-    for MOD in msg mbx sem math sched hal; do
+    for MOD in msg mbx fifo sem math sched hal; do
 	lsmod | grep -q rtai_$MOD && { rmmod rtai_$MOD && echo_log "removed loaded rtai_$MOD"; }
     done
 

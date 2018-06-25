@@ -43,9 +43,12 @@ class DataTable:
         self.setcol = len(self.data)
         return len(self.header)
 
-    def set_format(self, col, format):
-        self.formats[col] = format
-        self.setcol = col
+    def set_format(self, column, format):
+        column = self.col(column)
+        if column is None:
+            column = self.setcol
+        self.formats[column] = format
+        self.setcol = column
 
     def adjust_columns(self):
         for c, f in enumerate(self.formats):
@@ -69,8 +72,19 @@ class DataTable:
             f = f[:i0] + str(w) + f[i1:]
             self.formats[c] = f
 
-    def col(self, label):
-        ss = label.rstrip('>').split('>')
+    def col(self, column):
+        # column: int or str or None
+        if column is None:
+            return None
+        if not isinstance(column, int) and column.isdigit():
+            column = int(column)
+        if isinstance(column, int):
+            if column >= 0 and column < len(self.formats):
+                return column
+            else:
+                return None
+        # find column by header:
+        ss = column.rstrip('>').split('>')
         maxns = self.nsecs
         si = 0
         while ss[si] == '':
@@ -91,21 +105,21 @@ class DataTable:
                         break
         return None
 
-    def exist(self, label):
-        return self.col(label) is not None
+    def exist(self, column):
+        # column: int or str or None
+        return self.col(column) is not None
 
-    def add_value(self, val, col=None):
-        if col is not None and not isinstance(col, int):
-            col = self.col(col)
-        if col is None:
-            col = self.setcol
-        self.data[col].append(val)
-        self.setcol = col+1
+    def add_value(self, val, column=None):
+        column = self.col(column)
+        if column is None:
+            column = self.setcol
+        self.data[column].append(val)
+        self.setcol = column+1
 
-    def add_data(self, data, col=None):
+    def add_data(self, data, column=None):
         for val in data:
-            self.add_value(val, col)
-            col = None
+            self.add_value(val, column)
+            column = None
 
     def fill_data(self):
         # maximum rows:
@@ -118,15 +132,14 @@ class DataTable:
             while len(self.data[c]) < r:
                 self.data[c].append(float('NaN'))
 
+    def hide(self, column):
+        column = self.col(column)
+        if column is not None:
+            self.hidden[column] = True
+                
     def sort(self, column):
-        if not isinstance(column, int):
-            if column.isdigit():
-                column = int(column)
-            else:
-                column = self.col(column)
-                if column is None:
-                    column = -1
-        if column >= 0:
+        column = self.col(column)
+        if column is not None:
             self.indices = sorted(range(len(self.data[column])), key=self.data[column].__getitem__)
 
     def write(self, df, table_format='dat', units="row", number_cols=False):
@@ -289,27 +302,34 @@ class DataTable:
             df.write(header_start)
             for c in range(len(self.header)):
                 if nsec < len(self.header[c]):
-                    if not first:
-                        df.write(header_sep)
-                    first = False
-                    hs = self.header[c][nsec]
-                    if nsec == 0 and units == "header":
-                        if units and self.units[c] != '1':
-                            hs += '/' + self.units[c]
                     # section width and column count:
-                    sw = widths[c]
-                    columns = 1
+                    sw = -len(header_sep)
+                    columns = 0
+                    if not self.hidden[c]:
+                        sw = widths[c]
+                        columns = 1
                     for k in range(c+1, len(self.header)):
                         if nsec < len(self.header[k]):
                             break
+                        if self.hidden[k]:
+                            continue
                         sw += len(header_sep) + widths[k]
                         columns += 1
+                    if columns == 0:
+                        continue
+                    if not first:
+                        df.write(header_sep)
+                    first = False
                     if table_format[0] == 'h':
                         if columns>1:
                             df.write(' colspan="%d"' % columns)
                     elif table_format[0] == 't':
                         df.write('\\multicolumn{%d}{l}{' % columns)
                     df.write(header_close)
+                    hs = self.header[c][nsec]
+                    if nsec == 0 and units == "header":
+                        if units and self.units[c] != '1':
+                            hs += '/' + self.units[c]
                     if format_width:
                         f = '%%-%ds' % sw
                         df.write(f % hs)
@@ -518,6 +538,9 @@ def main():
     parser.add_argument('-p', nargs=1, default=[outlier],
                         type=float, metavar='PERCENT', dest='outlier',
                         help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
+    parser.add_argument('-r', action='append', default=[],
+                        type=str, metavar='COL', dest='remove_cols',
+                        help='do not show (remove) column COL')
     parser.add_argument('-s', nargs=1, default=[sort_col],
                         type=str, metavar='COLUMN', dest='sort_col',
                         help='sort results according to COLUMN')
@@ -535,6 +558,7 @@ def main():
     number_cols = args.number_cols
     table_format = args.table_format[0]
     sort_col = args.sort_col[0]
+    remove_cols=args.remove_cols
 
     dt = DataTable()
     dt.add_section('data')
@@ -674,6 +698,8 @@ def main():
     elif sort_col == 'max':
         sort_col = 'kern latency>max'
     dt.sort(sort_col)
+    for rs in remove_cols:
+        dt.hide(rs)
     dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
 
 
