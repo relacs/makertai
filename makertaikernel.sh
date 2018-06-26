@@ -919,93 +919,125 @@ function print_settings {
 }
 
 function print_config {
-    echo "# settings for ${MAKE_RTAI_KERNEL}:"
-    echo
-    echo "# Path for the kernel archive and sources:"
-    echo "KERNEL_PATH=\"$KERNEL_PATH\""
-    echo
-    echo "# Version of linux kernel:"
-    echo "LINUX_KERNEL=\"$LINUX_KERNEL\""
-    echo
-    echo "# Name for kernel source directory to be appended to LINUX_KERNEL:"
-    echo "KERNEL_SOURCE_NAME=\"$KERNEL_SOURCE_NAME\""
-    echo
-    echo "# Name for RTAI patched linux kernel to be appended to kernel and RTAI version:"
-    echo "KERNEL_NUM=\"$KERNEL_NUM\""
-    echo
-    echo "# The kernel configuration to be used:"
-    echo "#   \"old\" for oldconfig from the running (or already configured kernel) kernel,"
-    echo "#   \"def\" for the defconfig target,"
-    echo "#   \"mod\" for the localmodconfig target, (even if kernel versions do not match)"
-    echo "#   \"backup\" for the backed up kernel configuration from the last test batch."
-    echo "# or a full path to a config file."
-    echo "KERNEL_CONFIG=\"$KERNEL_CONFIG\""
-    echo
-    echo "# Menu for editing the kernel configuration (menuconfig, gconfig, xconfig):"
-    echo "KERNEL_MENU=\"$KERNEL_MENU\""
-    echo
-    echo "# Run localmodconfig on the kernel configuration to deselect"
-    echo "# all kernel modules that are not currently used."
-    echo "RUN_LOCALMOD=$RUN_LOCALMOD"
-    echo
-    echo "# Default kernel parameter to be used when booting into the RTAI patched kernel:"
-    echo "KERNEL_PARAM=\"$KERNEL_PARAM\""
-    echo
-    echo "# One-word description of the KERNEL_PARAM that is added to the test description:"
-    echo "KERNEL_PARAM_DESCR=\"$KERNEL_PARAM_DESCR\""
-    echo
-    echo "# Kernel parameter to be added when running test batches:"
-    echo "BATCH_KERNEL_PARAM=\"$BATCH_KERNEL_PARAM\""
-    echo
-    echo "# Name of the file used by test batches for backing up the kernel configuration:"
-    echo "KERNEL_CONFIG_BACKUP=\"$KERNEL_CONFIG_BACKUP\""
-    echo
-    echo "# Default time in seconds to run the RTAI latency tests:"
-    echo "TEST_TIME_DEFAULT=$TEST_TIME_DEFAULT"
-    echo
-    echo "# Time in seconds to wait for starting a test batch after reboot:"
-    echo "STARTUP_TIME=$STARTUP_TIME"
-    echo
-    echo "# Approximate time in seconds needed to compile a linux kernel"
-    echo "# (watch output of ${MAKE_RTAI_KERNEL} reconfigure for a hint):"
-    echo "COMPILE_TIME=$COMPILE_TIME"
-    echo
-    echo "# Base path for sources of RTAI, newlib, and comedi:"
-    echo "LOCAL_SRC_PATH=\"$LOCAL_SRC_PATH\""
-    echo
-    echo "# Name of source and folder of RTAI sources in LOCAL_SOURCE_PATH:"
-    echo "# official relases for download (www.rtai.org):"
-    echo "# - rtai-4.1: rtai release version 4.1"
-    echo "# - rtai-5.1: rtai release version 5.1"
-    echo "# - rtai-x.x: rtai release version x.x"
-    echo "# from cvs (http://cvs.gna.org/cvsweb/?cvsroot=rtai):"
-    echo "# - magma: current development version"
-    echo "# - vulcano: stable development version"
-    echo "RTAI_DIR=\"$RTAI_DIR\""
-    echo
-    echo "# File name of RTAI patch to be used (check with ${MAKE_RTAI_KERNEL} info rtai):"
-    echo "RTAI_PATCH=\"$RTAI_PATCH\""
-    echo
-    echo "# Bring up menu for configuring RTAI?"
-    echo "RTAI_MENU=$RTAI_MENU"
-    echo
-    echo "# Parameter to be passed on to the rtai_hal kernel module:"
-    echo "RTAI_HAL_PARAM=\"$RTAI_HAL_PARAM\""
-    echo
-    echo "# Parameter to be passed on to the rtai_sched kernel module:"
-    echo "RTAI_SCHED_PARAM=\"$RTAI_SCHED_PARAM\""
-    echo
-    echo "# Name of folder for showroom sources in LOCAL_SOURCE_PATH:"
-    echo "SHOWROOM_DIR=\"$SHOWROOM_DIR\""
-    echo
-    echo "# Build newlib math library?"
-    echo "MAKE_NEWLIB=$MAKE_NEWLIB"
-    echo
-    echo "# Build RTAI?"
-    echo "MAKE_RTAI=$MAKE_RTAI"
-    echo
-    echo "# Build comedi daq-board drivers?"
-    echo "MAKE_COMEDI=$MAKE_COMEDI"
+    cat <<EOF
+# settings for ${MAKE_RTAI_KERNEL}:
+
+# Path for the kernel archive and sources:
+KERNEL_PATH="$KERNEL_PATH"
+
+# Version of linux kernel:
+LINUX_KERNEL="$LINUX_KERNEL"
+
+# Name for kernel source directory to be appended to LINUX_KERNEL:
+KERNEL_SOURCE_NAME="$KERNEL_SOURCE_NAME"
+
+# Name for RTAI patched linux kernel to be appended to kernel and RTAI version:
+KERNEL_NUM="$KERNEL_NUM"
+
+# The kernel configuration to be used:
+#   "old" for oldconfig from the running (or already configured kernel) kernel,
+#   "def" for the defconfig target,
+#   "mod" for the localmodconfig target, (even if kernel versions do not match)
+#   "backup" for the backed up kernel configuration from the last test batch.
+# or a full path to a config file.
+KERNEL_CONFIG="$KERNEL_CONFIG"
+
+# Menu for editing the kernel configuration (menuconfig, gconfig, xconfig):
+KERNEL_MENU="$KERNEL_MENU"
+
+# Run localmodconfig on the kernel configuration to deselect
+# all kernel modules that are not currently used.
+RUN_LOCALMOD=$RUN_LOCALMOD
+
+# Default kernel parameter to be used when booting into the RTAI patched kernel:
+KERNEL_PARAM="$KERNEL_PARAM"
+
+# One-word description of the KERNEL_PARAM that is added to the test description:
+KERNEL_PARAM_DESCR="$KERNEL_PARAM_DESCR"
+
+# Kernel parameter to be added when running test batches:
+BATCH_KERNEL_PARAM="$BATCH_KERNEL_PARAM"
+
+# Name of the file used by test batches for backing up the kernel configuration:
+KERNEL_CONFIG_BACKUP="$KERNEL_CONFIG_BACKUP"
+
+# Default time in seconds to run the RTAI latency tests:
+TEST_TIME_DEFAULT=$TEST_TIME_DEFAULT
+
+# Time in seconds to wait for starting a test batch after reboot:
+STARTUP_TIME=$STARTUP_TIME
+
+# Approximate time in seconds needed to compile a linux kernel
+# (watch output of ${MAKE_RTAI_KERNEL} reconfigure for a hint):
+COMPILE_TIME=$COMPILE_TIME
+
+# Base path for sources of RTAI, newlib, and comedi:
+LOCAL_SRC_PATH="$LOCAL_SRC_PATH"
+
+# Name of source and folder of RTAI sources in LOCAL_SOURCE_PATH:
+# official relases for download (www.rtai.org):
+# - rtai-4.1: rtai release version 4.1
+# - rtai-5.1: rtai release version 5.1
+# - rtai-x.x: rtai release version x.x
+# from cvs (http://cvs.gna.org/cvsweb/?cvsroot=rtai):
+# - magma: current development version
+# - vulcano: stable development version
+RTAI_DIR="$RTAI_DIR"
+
+# File name of RTAI patch to be used (check with ${MAKE_RTAI_KERNEL} info rtai):
+RTAI_PATCH="$RTAI_PATCH"
+
+# Bring up menu for configuring RTAI?
+RTAI_MENU=$RTAI_MENU
+
+# Parameter to be passed on to the rtai_hal kernel module:
+RTAI_HAL_PARAM="$RTAI_HAL_PARAM"
+
+# Parameter to be passed on to the rtai_sched kernel module:
+RTAI_SCHED_PARAM="$RTAI_SCHED_PARAM"
+
+# Name of folder for showroom sources in LOCAL_SOURCE_PATH:
+SHOWROOM_DIR="$SHOWROOM_DIR"
+
+# Build newlib math library?
+MAKE_NEWLIB=$MAKE_NEWLIB
+
+# Build RTAI?
+MAKE_RTAI=$MAKE_RTAI
+
+# Build comedi daq-board drivers?
+MAKE_COMEDI=$MAKE_COMEDI
+
+# Uncomment in the following list the columns you want to hide in the test report:
+HIDE_COLUMNS=(
+#data
+#data:num
+#data:kernel_parameter
+#data:load
+#data:quality
+#data:cpuid
+#data:latency
+#data:performance
+#data:temp
+#data:freq
+#data:poll
+#kern_latencies
+#kern_latencies:mean_jitter
+#kern_latencies:stdev
+#kern_latencies:max
+#kern_latencies:overruns
+#kern_latencies:n
+#kern_switches
+#kern_switches:susp
+#kern_switches:sem
+#kern_switches:rpc
+#kern_preempt
+#kern_preempt:max
+#kern_preempt:jitfast
+#kern_preempt:jitslow
+#kern_preempt:n
+)
+EOF
 }
 
 function print_kernel_info {
@@ -3024,7 +3056,7 @@ function restore_test_batch {
 
 function test_report {
     if test -r testreport.py; then
-	python testreport.py $@
+	python testreport.py ${HIDE_COLUMNS[@]/#/-r } $@
 	return
     fi
     SORT=false
@@ -4356,16 +4388,12 @@ function info_all {
 	    grub ) print_grub env ;;
 
 	    settings )
-		if [ -t 1 ]; then
-		    print_settings
-		    echo
-		    echo "You may modify the settings by the respective command line options (check \$ ${MAKE_RTAI_KERNEL} help),"
-		    echo "by setting them in the configuration file \"${MAKE_RTAI_CONFIG}\""
-		    echo "(create configuration file by \$ ${MAKE_RTAI_KERNEL} info settings > ${MAKE_RTAI_CONFIG}), or"
-		    echo "by editing the variables directly in the ${MAKE_RTAI_KERNEL} script."
-		else
-		    print_config
-		fi
+		print_settings
+		echo
+		echo "You may modify the settings by the respective command line options (check \$ ${MAKE_RTAI_KERNEL} help),"
+		echo "by setting them in the configuration file \"${MAKE_RTAI_CONFIG}\""
+		echo "(create configuration file by \$ ${MAKE_RTAI_KERNEL} config), or"
+		echo "by editing the variables directly in the ${MAKE_RTAI_KERNEL} script."
 		;;
 
 	    setup ) print_setup ;;

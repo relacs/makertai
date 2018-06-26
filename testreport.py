@@ -91,7 +91,7 @@ class DataTable:
                     c0 = c
                     si += 1
                     if si >= len(ss):
-                        c1 = c0+1
+                        c1 = len(self.header)
                         for c in range(c0+1, len(self.header)):
                             if nsec < len(self.header[c]):
                                 c1 = c
@@ -168,10 +168,21 @@ class DataTable:
         if column is not None:
             self.indices = sorted(range(len(self.data[column])), key=self.data[column].__getitem__)
 
-    def write(self, df, table_format='dat', units="row", number_cols=False):
+    def write_keys(self, sep='>', space=None):
+        fh = self.nsecs * ['']
+        for hl in self.header:
+            fh[0:len(hl)] = hl
+            for n in range(len(hl)):
+                n0 = len(hl)-n-1
+                line = sep.join(reversed(fh[n0:]))
+                if space is not None:
+                    line = line.replace(' ', space)
+                print(line)
+
+    def write(self, df, table_format='dat', units="row", number_cols=None):
         # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
         # units: "row", "header" or "none"
-        # number_cols: add row with colum numbers
+        # number_cols: add row with colum numbers ('num', 'index') or letters ('alph' or 'ALPH')
         format_width = True
         begin_str = ''
         end_str = ''
@@ -218,7 +229,7 @@ class DataTable:
             bottom_line = False
         elif table_format[0] == 'c':
             # cvs according to http://www.ietf.org/rfc/rfc4180.txt :
-            number_cols=False
+            number_cols=None
             if units == "row":
                 units = "header"
             format_width = False
@@ -234,7 +245,7 @@ class DataTable:
             header_line = False
             bottom_line = False
         elif table_format[0] == 'm':
-            number_cols=False
+            number_cols=None
             if units == "row":
                 units = "header"
             format_width = True
@@ -385,7 +396,7 @@ class DataTable:
                         df.write(self.units[c])
             df.write(header_end)
         # column numbers:
-        if number_cols:
+        if number_cols is not None:
             first = True
             df.write(header_start)
             for c in range(len(self.header)):
@@ -395,14 +406,30 @@ class DataTable:
                     df.write(header_sep)
                 first = False
                 df.write(header_close)
+                a = 'a'
+                if number_cols == 'ALPH':
+                    a = 'A'
+                i = c
+                if number_cols == 'num':
+                    i = c+1
                 if table_format[0] == 't':
-                    df.write('\\multicolumn{1}{l}{%d}' % (c+1))
-                else:
-                    if format_width:
-                        f = '%%%dd' % widths[c]
-                        df.write(f % (c+1))
+                    if number_cols == 'num' or number_cols == 'index':
+                        df.write('\\multicolumn{1}{l}{%d}' % i)
                     else:
-                        df.write("%d" % (c+1))
+                        df.write('\\multicolumn{1}{l}{%s}' % chr(ord(a)+c))
+                else:
+                    if number_cols == 'num' or number_cols == 'index':
+                        if format_width:
+                            f = '%%%dd' % widths[c]
+                            df.write(f % i)
+                        else:
+                            df.write("%d" % i)
+                    else:
+                        if format_width:
+                            f = '%%%ds' % widths[c]
+                            df.write(f % chr(ord(a)+c))
+                        else:
+                            df.write("%s" % chr(ord(a)+c))
             df.write(header_end)
         # header line:
         if header_line:
@@ -578,7 +605,9 @@ def main():
 
     init = args.init
     outlier = args.outlier
-    number_cols = args.number_cols
+    number_cols = None
+    if args.number_cols:
+        number_cols = 'index'
     table_format = args.table_format
     sort_col = args.sort_col
     remove_cols=args.remove_cols
@@ -748,6 +777,10 @@ def main():
                                  testmode+' preempt>n')
             dt.fill_data()
 
+    # write table keys for makertaikernel.cfg file:
+    #dt.write_keys(':', '_')
+    #return
+            
     # write results:
     dt.adjust_columns()
     if sort_col == 'avg':
@@ -756,7 +789,7 @@ def main():
         sort_col = 'kern latencies>max'
     dt.sort(sort_col)
     for rs in remove_cols:
-        dt.hide(rs)
+        dt.hide(rs.replace('_', ' ').replace(':', '>'))
     dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
 
 
