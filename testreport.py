@@ -89,17 +89,20 @@ class DataTable:
         ss = column.rstrip('>').split('>')
         maxns = self.nsecs
         si = 0
-        while ss[si] == '':
+        while si < len(ss) and ss[si] == '':
             maxns -= 1
+            si += 1
         if maxns < 0:
             maxns = 0
+        i0 = 0
         for ns in range(maxns+1):
             nsec = maxns-ns
             if ss[si] == '':
                 si += 1
                 continue
-            for i in range(len(self.header)):
+            for i in range(i0, len(self.header)):
                 if nsec < len(self.header[i]) and self.header[i][nsec] == ss[si]:
+                    i0 = i
                     si += 1
                     if si >= len(ss):
                         return i
@@ -608,25 +611,33 @@ def main():
                     overruns = []
                     jitterfast = []
                     jitterslow = []
+                    switches = []
                 if '------------' in line:
                     intest = False
                     if testtype == 'latency':
                         data[testmode, testtype, 'latencies'] = np.array(latencies)
                         data[testmode, testtype, 'overruns'] = np.array(overruns)
+                    elif testtype == 'switches':
+                        data[testmode, testtype, 'switches'] = np.array(switches)
                     elif testtype == 'preempt':
                         data[testmode, testtype, 'latencies'] = np.array(latencies)
                         data[testmode, testtype, 'jitterfast'] = np.array(jitterfast)
                         data[testmode, testtype, 'jitterslow'] = np.array(jitterslow)
                 if intest:
-                    cols = line.split('|')
-                    if cols[0] == 'RTD':
-                        if testtype == 'latency':
-                            latencies.append(int(cols[4])-int(cols[1]))
-                            overruns.append(int(cols[6]))
-                        elif testtype == 'preempt':
-                            latencies.append(int(cols[3])-int(cols[1]))
-                            jitterfast.append(int(cols[4]))
-                            jitterslow.append(int(cols[5]))
+                    if testtype == 'switches':
+                        if 'SWITCH TIME' in line:
+                            cols = line.split()
+                            switches.append(int(cols[-2]))
+                    else:        
+                        cols = line.split('|')
+                        if cols[0] == 'RTD':
+                            if testtype == 'latency':
+                                latencies.append(int(cols[4])-int(cols[1]))
+                                overruns.append(int(cols[6]))
+                            elif testtype == 'preempt':
+                                latencies.append(int(cols[3])-int(cols[1]))
+                                jitterfast.append(int(cols[4]))
+                                jitterslow.append(int(cols[5]))
 
             # gather other data:
             coretemp = float('NaN')
@@ -672,8 +683,8 @@ def main():
             for testmode in ['kern', 'kthreads', 'user']:
                 if (testmode, 'latency', 'latencies') in data:
                     # provide columns:
-                    if not dt.exist(testmode+' latency'):
-                        dt.add_section('kern latency')
+                    if not dt.exist(testmode+' latencies'):
+                        dt.add_section(testmode+' latencies')
                         dt.add_column('mean jitter', 'ns', '%7.0f')
                         dt.add_column('stdev', 'ns', '%7.0f')
                         dt.add_column('max', 'ns', '%7.0f')
@@ -684,13 +695,36 @@ def main():
                     overruns = data[testmode, 'latency', 'overruns']
                     overruns = np.diff(overruns)
                     dt.add_data(analyze_latencies(latencies[init:], outlier),
-                                testmode+' latency>mean jitter')
+                                testmode+' latencies>mean jitter')
                     dt.add_data(analyze_overruns(overruns[init:]),
-                                testmode+' latency>overruns')
-                elif (testmode, 'preempt', 'latencies') in data:
+                                testmode+' latencies>overruns')
+                if (testmode, 'switches', 'switches') in data:
+                    # provide columns:
+                    if not dt.exist(testmode+' switches'):
+                        dt.add_section(testmode+' switches')
+                        dt.add_column('susp', 'ns', '%5.0f')
+                        dt.add_column('sem', 'ns', '%5.0f')
+                        dt.add_column('rpc', 'ns', '%5.0f')
+                    # analyze switches test:
+                    dt.add_data(data[testmode, 'switches', 'switches'],
+                                testmode+' switches>susp')
+                if (testmode, 'preempt', 'latencies') in data:
+                    # provide columns:
+                    if not dt.exist(testmode+' preempt'):
+                        dt.add_section(testmode+' preempt')
+                        dt.add_column('max', 'ns', '%9.0f')
+                        dt.add_column('jitfast', 'ns', '%9.0f')
+                        dt.add_column('jitslow', 'ns', '%9.0f')
+                        dt.add_column('n', '1', '%5d')
                     # analyze preempt test:
-                    #print np.mean(data[testmode, 'latency', 'latencies'])
-                    pass
+                    dt.add_value(data[testmode, 'preempt', 'latencies'][-1],
+                                 testmode+' preempt>max')
+                    dt.add_value(data[testmode, 'preempt', 'jitterfast'][-1],
+                                 testmode+' preempt>jitfast')
+                    dt.add_value(data[testmode, 'preempt', 'jitterslow'][-1],
+                                 testmode+' preempt>jitslow')
+                    dt.add_value(len(data[testmode, 'preempt', 'jitterslow']),
+                                 testmode+' preempt>n')
             dt.fill_data()
 
     # write results:
