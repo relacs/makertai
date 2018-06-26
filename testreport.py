@@ -74,41 +74,61 @@ class DataTable:
             f = f[:i0] + str(w) + f[i1:]
             self.formats[c] = f
 
-    def col(self, column):
-        # column: int or str or None
-        if column is None:
-            return None
-        if not isinstance(column, int) and column.isdigit():
-            column = int(column)
-        if isinstance(column, int):
-            if column >= 0 and column < len(self.formats):
-                return column
-            else:
-                return None
-        # find column by header:
-        ss = column.rstrip('>').split('>')
-        maxns = self.nsecs
-        si = 0
-        while si < len(ss) and ss[si] == '':
-            maxns -= 1
-            si += 1
-        if maxns < 0:
-            maxns = 0
-        i0 = 0
-        for ns in range(maxns+1):
+    def _find_col(self, ss, si, minns, maxns, c0, strict=True):
+        if si >= len(ss):
+            return None, None, None, None
+        ns0 = 0
+        for ns in range(minns, maxns+1):
             nsec = maxns-ns
             if ss[si] == '':
                 si += 1
                 continue
-            for i in range(i0, len(self.header)):
-                if nsec < len(self.header[i]) and self.header[i][nsec] == ss[si]:
-                    i0 = i
+            for c in range(c0, len(self.header)):
+                if nsec < len(self.header[c]) and \
+                    ( ( strict and self.header[c][nsec] == ss[si] ) or
+                      ( not strict and ss[si] in self.header[c][nsec] ) ):
+                    ns0 = ns
+                    c0 = c
                     si += 1
                     if si >= len(ss):
-                        return i
+                        c1 = c0+1
+                        for c in range(c0+1, len(self.header)):
+                            if nsec < len(self.header[c]):
+                                c1 = c
+                                break
+                        return c0, c1, ns0, None
                     elif nsec > 0:
                         break
-        return None
+        return None, c0, ns0, si
+
+    def find_col(self, column):
+        # column: int or str or None
+        if column is None:
+            return None, None
+        if not isinstance(column, int) and column.isdigit():
+            column = int(column)
+        if isinstance(column, int):
+            if column >= 0 and column < len(self.formats):
+                return column, column+1
+            else:
+                return None, None
+        # find column by header:
+        ss = column.rstrip('>').split('>')
+        maxns = self.nsecs
+        si0 = 0
+        while si0 < len(ss) and ss[si0] == '':
+            maxns -= 1
+            si0 += 1
+        if maxns < 0:
+            maxns = 0
+        c0, c1, ns, si = self._find_col(ss, si0, 0, maxns, 0, True)
+        if c0 is None and c1 is not None:
+            c0, c1, ns, si = self._find_col(ss, si, ns, maxns, c1, False)
+        return c0, c1
+    
+    def col(self, column):
+        c0, c1 = self.find_col(column)
+        return c0
 
     def exist(self, column):
         # column: int or str or None
@@ -138,9 +158,10 @@ class DataTable:
                 self.data[c].append(float('NaN'))
 
     def hide(self, column):
-        column = self.col(column)
-        if column is not None:
-            self.hidden[column] = True
+        c0, c1 = self.find_col(column)
+        if c0 is not None:
+            for c in range(c0, c1):
+                self.hidden[c] = True
                 
     def sort(self, column):
         column = self.col(column)
@@ -169,17 +190,17 @@ class DataTable:
             format_width = True
             begin_str = ''
             end_str = ''
-            header_start = '# '
+            header_start = '| '
             header_sep = ' | '
             header_close = ''
-            header_end = '\n'
-            data_start = '  '
+            header_end = ' |\n'
+            data_start = '| '
             data_sep = ' | '
             data_close = ''
-            data_end = '\n'
-            top_line = False
-            header_line = False
-            bottom_line = False
+            data_end = ' |\n'
+            top_line = True
+            header_line = True
+            bottom_line = True
         elif table_format[0] == 'r':
             format_width = True
             begin_str = ''
@@ -730,9 +751,9 @@ def main():
     # write results:
     dt.adjust_columns()
     if sort_col == 'avg':
-        sort_col = 'kern latency>mean jitter'
+        sort_col = 'kern latencies>mean jitter'
     elif sort_col == 'max':
-        sort_col = 'kern latency>max'
+        sort_col = 'kern latencies>max'
     dt.sort(sort_col)
     for rs in remove_cols:
         dt.hide(rs)
