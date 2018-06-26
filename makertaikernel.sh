@@ -2463,13 +2463,13 @@ function test_kernel {
     if test -z "$DESCRIPTION"; then
 	read -p "Please enter a short description of the test result (empty: $TEST_RESULT, n: don't save): " RESULT
 	test -z "$RESULT" && RESULT="$TEST_RESULT"
+	echo_log
     else
 	RESULT="$TEST_RESULT"
     fi
     if test "$RESULT" != n; then
 	REPORT="${REPORT_NAME}-${RESULT}"
 	test_save "$NAME" "$REPORT" "$TESTED" "$PROGRESS" "$CPU_ID" results-cpus.dat hardware
-	echo_log
 	echo_log "saved kernel configuration in : config-$REPORT"
 	echo_log "saved test results in         : latencies-$REPORT"
     else
@@ -3661,8 +3661,8 @@ function restore_rtai {
 	if ! $DRYRUN; then
 	    cd ${LOCAL_SRC_PATH}/$RTAI_DIR/testsuite/kern/latency
 	    cp latency-module.c.mrk latency-module.c
-	    rm latency-module.c.mrk
 	    sync
+	    rm latency-module.c.mrk
 	    echo_log "Rebuild kern/latency test"
 	    touch latency-module.c
 	    make

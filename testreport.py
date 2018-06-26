@@ -6,6 +6,8 @@ import math as m
 import numpy as np
 
 class DataTable:
+    formats = ['dat', 'ascii', 'rtai', 'csv', 'md', 'html', 'tex']
+
     def __init__(self):
         self.data = []
         self.header = []
@@ -517,7 +519,7 @@ def analyze_overruns(data):
     mean = np.mean(data)
     minv = np.min(data)
     maxv = np.max(data)
-    return [maxv]
+    return [maxv, len(data)]
 
 
 def main():
@@ -532,32 +534,29 @@ def main():
         description='Analyse RTAI test results.',
         epilog='by Jan Benda (2018)')
     parser.add_argument('--version', action='version', version="1.0")
-    parser.add_argument('-i', nargs=1, default=[init],
-                        type=int, metavar='LINES', dest='init',
-                        help='number of initial lines to be skipped (defaults to {0:d})'.format(init))
-    parser.add_argument('-p', nargs=1, default=[outlier],
-                        type=float, metavar='PERCENT', dest='outlier',
-                        help='percentile defining outliers (defaults to {0:g}%%)'.format(outlier))
+    parser.add_argument('-i', default=init, type=int, metavar='LINES', dest='init',
+                        help='number of initial lines to be skipped (defaults to %(default)s)')
+    parser.add_argument('-p', default=outlier, type=float, metavar='PERCENT', dest='outlier',
+                        help='percentile defining outliers (defaults to %(default)s%%)')
     parser.add_argument('-r', action='append', default=[],
-                        type=str, metavar='COL', dest='remove_cols',
-                        help='do not show (remove) column COL')
-    parser.add_argument('-s', nargs=1, default=[sort_col],
-                        type=str, metavar='COLUMN', dest='sort_col',
-                        help='sort results according to COLUMN')
-    parser.add_argument('-f', nargs=1, default=[table_format],
-                        type=str, metavar='FORMAT', dest='table_format',
-                        help='output format of summary table (defaults to {0:s}%%)'.format(table_format))
+                        type=str, metavar='COLUMN', dest='remove_cols',
+                        help='do not show (remove) column %(metavar)s (index or header)')
+    parser.add_argument('-s', default=sort_col, type=str, metavar='COLUMN', dest='sort_col',
+                        help='sort results according to %(metavar)s (index or header)')
+    parser.add_argument('-f', default=table_format, dest='table_format',
+                        choices=DataTable.formats,
+                        help='output format of summary table (defaults to "%(default)s")')
     parser.add_argument('-n', dest='number_cols', action='store_true',
                         help='add line with column numbers to header')
     parser.add_argument('file', nargs='*', default='', type=str,
                         help='latency-* file with RTAI test results')
     args = parser.parse_args()
 
-    init = args.init[0]
-    outlier = args.outlier[0]
+    init = args.init
+    outlier = args.outlier
     number_cols = args.number_cols
-    table_format = args.table_format[0]
-    sort_col = args.sort_col[0]
+    table_format = args.table_format
+    sort_col = args.sort_col
     remove_cols=args.remove_cols
 
     dt = DataTable()
@@ -679,12 +678,15 @@ def main():
                         dt.add_column('stdev', 'ns', '%7.0f')
                         dt.add_column('max', 'ns', '%7.0f')
                         dt.add_column('overruns', '1', '%6.0f')
+                        dt.add_column('n', 's', '%5d')
                     # analyze latency test:
                     latencies = data[testmode, 'latency', 'latencies']
                     overruns = data[testmode, 'latency', 'overruns']
                     overruns = np.diff(overruns)
-                    dt.add_data(analyze_latencies(latencies[init:], outlier), dt.col(testmode+' latency>mean jitter'))
-                    dt.add_data(analyze_overruns(overruns[init:]), dt.col(testmode+' latency>overruns'))
+                    dt.add_data(analyze_latencies(latencies[init:], outlier),
+                                testmode+' latency>mean jitter')
+                    dt.add_data(analyze_overruns(overruns[init:]),
+                                testmode+' latency>overruns')
                 elif (testmode, 'preempt', 'latencies') in data:
                     # analyze preempt test:
                     #print np.mean(data[testmode, 'latency', 'latencies'])
