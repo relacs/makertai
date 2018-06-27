@@ -180,6 +180,12 @@ class DataTable:
                     line = line.replace(' ', space)
                 print(line)
 
+    def index2aa(self, n, a='a'):
+        # inspired by https://stackoverflow.com/a/37604105
+        d, m = divmod(n, 26)
+        bm = chr(ord(a)+m)
+        return index2aa(d-1, a) + bm if d else bm
+
     def write(self, df, table_format='dat', units="row", number_cols=None):
         # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
         # units: "row", "header" or "none"
@@ -407,17 +413,17 @@ class DataTable:
                     df.write(header_sep)
                 first = False
                 df.write(header_close)
-                a = 'a'
-                if number_cols == 'AA':
-                    a = 'A'
                 i = c
                 if number_cols == 'num':
                     i = c+1
+                aa = self.index2aa(c, 'a')
+                if number_cols == 'AA':
+                    aa = self.index2aa(c, 'A')
                 if table_format[0] == 't':
                     if number_cols == 'num' or number_cols == 'index':
                         df.write('\\multicolumn{1}{l}{%d}' % i)
                     else:
-                        df.write('\\multicolumn{1}{l}{%s}' % chr(ord(a)+c))
+                        df.write('\\multicolumn{1}{l}{%s}' % aa)
                 else:
                     if number_cols == 'num' or number_cols == 'index':
                         if format_width:
@@ -428,9 +434,9 @@ class DataTable:
                     else:
                         if format_width:
                             f = '%%%ds' % widths[c]
-                            df.write(f % chr(ord(a)+c))
+                            df.write(f % aa)
                         else:
-                            df.write("%s" % chr(ord(a)+c))
+                            df.write(aa)
             df.write(header_end)
         # header line:
         if header_line:
@@ -572,7 +578,6 @@ def analyze_overruns(data):
     minv = np.min(data)
     maxv = np.max(data)
     return [maxv, len(data)]
-
 
 def main():
     init = 10
