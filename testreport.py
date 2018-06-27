@@ -4,6 +4,7 @@ import glob
 import argparse
 import math as m
 import numpy as np
+import matplotlib.pyplot as plt
 
 class DataTable:
     formats = ['dat', 'ascii', 'rtai', 'csv', 'md', 'html', 'tex']
@@ -606,6 +607,8 @@ def main():
     parser.add_argument('-n', default=None, const='num', nargs='?', dest='number_cols',
                         choices=DataTable.column_numbering,
                         help='add line with column numbers/indices/letters to header')
+    parser.add_argument('-g', default=False, action='store_true', dest='plots',
+                        help='show histogram plots')
     parser.add_argument('file', nargs='*', default='', type=str,
                         help='latency-* file with RTAI test results')
     args = parser.parse_args()
@@ -615,7 +618,8 @@ def main():
     number_cols = args.number_cols
     table_format = args.table_format
     sort_col = args.sort_col
-    remove_cols=args.remove_cols
+    remove_cols = args.remove_cols
+    plots = args.plots
 
     dt = DataTable()
     dt.add_section('data')
@@ -753,6 +757,18 @@ def main():
                                 testmode+' latencies>mean jitter')
                     dt.add_data(analyze_overruns(overruns[init:]),
                                 testmode+' latencies>overruns')
+                    if plots:
+                        # plot:
+                        ax = plt.subplot(1, 1, 1)
+                        logbins = np.logspace(2.0, 5.0, 100)
+                        ax.hist(latencies, logbins)
+                        ax.set_title(testmode + ' latencies')
+                        ax.set_xscale('log')
+                        ax.set_xlabel('Jitter [ns]')
+                        ax.set_yscale('log', nonposy='clip')
+                        ax.set_ylim(0.5, len(latencies)/2)
+                        ax.set_ylabel('Count')
+                        plt.show()
                 if (testmode, 'switches', 'switches') in data:
                     # provide columns:
                     if not dt.exist(testmode+' switches'):
