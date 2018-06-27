@@ -7,6 +7,7 @@ import numpy as np
 
 class DataTable:
     formats = ['dat', 'ascii', 'rtai', 'csv', 'md', 'html', 'tex']
+    column_numbering = ['num', 'index', 'aa', 'AA']
 
     def __init__(self):
         self.data = []
@@ -182,7 +183,7 @@ class DataTable:
     def write(self, df, table_format='dat', units="row", number_cols=None):
         # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
         # units: "row", "header" or "none"
-        # number_cols: add row with colum numbers ('num', 'index') or letters ('alph' or 'ALPH')
+        # number_cols: add row with colum numbers ('num', 'index') or letters ('aa' or 'AA')
         format_width = True
         begin_str = ''
         end_str = ''
@@ -407,7 +408,7 @@ class DataTable:
                 first = False
                 df.write(header_close)
                 a = 'a'
-                if number_cols == 'ALPH':
+                if number_cols == 'AA':
                     a = 'A'
                 i = c
                 if number_cols == 'num':
@@ -577,7 +578,7 @@ def main():
     init = 10
     outlier = 0.0  # percent
     sort_col = '-1'
-    number_cols = False
+    number_cols = None
     table_format = 'dat'
 
     # command line arguments:
@@ -594,20 +595,19 @@ def main():
                         help='do not show (remove) column %(metavar)s (index or header)')
     parser.add_argument('-s', default=sort_col, type=str, metavar='COLUMN', dest='sort_col',
                         help='sort results according to %(metavar)s (index or header)')
-    parser.add_argument('-f', default=table_format, dest='table_format',
+    parser.add_argument('-f', nargs='?', default=table_format, const='num', dest='table_format',
                         choices=DataTable.formats,
                         help='output format of summary table (defaults to "%(default)s")')
-    parser.add_argument('-n', dest='number_cols', action='store_true',
-                        help='add line with column numbers to header')
+    parser.add_argument('-n', default=None, const='num', nargs='?', dest='number_cols',
+                        choices=DataTable.column_numbering,
+                        help='add line with column numbers/indices/letters to header')
     parser.add_argument('file', nargs='*', default='', type=str,
                         help='latency-* file with RTAI test results')
     args = parser.parse_args()
 
     init = args.init
     outlier = args.outlier
-    number_cols = None
-    if args.number_cols:
-        number_cols = 'index'
+    number_cols = args.number_cols
     table_format = args.table_format
     sort_col = args.sort_col
     remove_cols=args.remove_cols
