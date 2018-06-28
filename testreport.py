@@ -526,14 +526,14 @@ def parse_filename(filename, dt):
     quality = cols[-1]
     load = cols[-2]
     param = cols[9:-2]
-    cpuid='0'
+    cpuid=0
     latency='-'
     performance='no'
     remove = []
     for p in param:
         if p[0:3] == 'cpu':
-            cpuid = p[3:]
-            remove.append('cpu'+cpuid)
+            cpuid = int(p[3:])
+            remove.append('cpu%d' % cpuid)
         if p == 'nolatency':
             latency='user'
             remove.append(p)
@@ -550,12 +550,12 @@ def parse_filename(filename, dt):
         param.remove(r)
     param = '-'.join(param)
 
-    dt.add_value(num, dt.col('data>num'))
-    dt.add_value(param, dt.col('data>kernel parameter'))
-    dt.add_value(load, dt.col('data>load'))
-    dt.add_value(quality, dt.col('data>quality'))
-    dt.add_value(latency, dt.col('data>latency'))
-    dt.add_value(performance, dt.col('data>performance'))
+    dt.add_value(num, 'data>num')
+    dt.add_value(param, 'data>kernel parameter')
+    dt.add_value(load, 'data>load')
+    dt.add_value(latency, 'data>latency')
+    dt.add_value(performance, 'data>performance')
+    dt.add_value(quality, 'data>quality')
 
     return cpuid
 
@@ -625,14 +625,32 @@ def main():
     dt.add_section('data')
     dt.add_column('num', '1', '%3s')
     dt.add_column('kernel parameter', '1', '%-20s')
+    dt.add_column('isolcpu', '1', '%2d')
+    dt.add_column('cpu', '1', '%2d')
     dt.add_column('load', '1', '%-5s')
-    dt.add_column('quality', '1', '%-7s')
-    dt.add_column('cpuid', '1', '%-5s')
     dt.add_column('latency', '1', '%-4s')
     dt.add_column('performance', '1', '%-3s')
     dt.add_column('temp', 'C', '%5.1f')
     dt.add_column('freq', 'GHz', '%6.3f')
     dt.add_column('poll', '%', '%5.1f')
+    dt.add_column('quality', '1', '%-7s')
+    #for testmode in ['kern', 'kthreads', 'user']:
+    for testmode in ['kern']:
+        dt.add_section(testmode+' latencies')
+        dt.add_column('mean jitter', 'ns', '%7.0f')
+        dt.add_column('stdev', 'ns', '%7.0f')
+        dt.add_column('max', 'ns', '%7.0f')
+        dt.add_column('overruns', '1', '%6.0f')
+        dt.add_column('n', 's', '%5d')
+        dt.add_section(testmode+' switches')
+        dt.add_column('susp', 'ns', '%5.0f')
+        dt.add_column('sem', 'ns', '%5.0f')
+        dt.add_column('rpc', 'ns', '%5.0f')
+        dt.add_section(testmode+' preempt')
+        dt.add_column('max', 'ns', '%9.0f')
+        dt.add_column('jitfast', 'ns', '%9.0f')
+        dt.add_column('jitslow', 'ns', '%9.0f')
+        dt.add_column('n', '1', '%5d')
 
     # list files:
     files = []
@@ -713,24 +731,33 @@ def main():
                                 jitterslow.append(int(cols[5]))
 
             # gather other data:
+            isolcpu = float('NaN')
             coretemp = float('NaN')
             cpufreq = float('NaN')
             poll = float('NaN')
+            inparameter = False
             inenvironment = False
             incputopology = False
             incputemperatures = False
             for line in sf:
+                if 'Kernel parameter' in line:
+                    inparameter = True
+                if inparameter:
+                    if 'isolcpus' in line:
+                        isolcpu = int(list(filter(str.isdigit, line))[0])
+                    if line.strip() == '':
+                        inparameter = False
                 if 'Environment' in line:
                     inenvironment = True
                 if inenvironment:
                     if "tests run on cpu" in line:
-                        cpuid = line.split(':')[1].strip()
+                        cpuid = int(line.split(':')[1].strip())
                     if line.strip() == '':
                         inenvironment = False
                 if 'CPU topology' in line:
                     incputopology = True
                 if incputopology:
-                    if 'cpu'+cpuid in line:
+                    if 'cpu%d' % cpuid in line:
                         cols = line.split()
                         if len(cols) >= 5:
                             cpufreq = float(cols[4].strip())
@@ -741,22 +768,24 @@ def main():
                 if 'CPU core temperatures' in line:
                     incputemperatures = True
                 if incputemperatures:
-                    if 'Core '+cpuid in line:
+                    if 'Core %d' % cpuid in line:
                         coretemp = float(line.split(':')[1].split()[0].lstrip('+').rstrip('\xc2\xb0C'))
                     if line.strip() == '':
                         incputemperatures = False
 
             # fill table:                    
-            dt.add_value('cpu'+cpuid, dt.col('data>cpuid'))
-            dt.add_value(coretemp, dt.col('data>temp'))
-            dt.add_value(cpufreq, dt.col('data>freq'))
-            dt.add_value(poll, dt.col('data>poll'))
+            dt.add_value(isolcpu, 'data>isolcpu')
+            dt.add_value(cpuid, 'data>cpu')
+            dt.add_value(coretemp, 'data>temp')
+            dt.add_value(cpufreq, 'data>freq')
+            dt.add_value(poll, 'data>poll')
 
             # analyze:
             for testmode in ['kern', 'kthreads', 'user']:
                 if (testmode, 'latency', 'latencies') in data:
                     # provide columns:
                     if not dt.exist(testmode+' latencies'):
+                        dt.setcol = len(dt.data)
                         dt.add_section(testmode+' latencies')
                         dt.add_column('mean jitter', 'ns', '%7.0f')
                         dt.add_column('stdev', 'ns', '%7.0f')
