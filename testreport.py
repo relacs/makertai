@@ -518,7 +518,7 @@ class DataTable:
                     
 def parse_filename(filename, dt):
     # dissect filename:
-    cols = filename.split('-')
+    cols = os.path.basename(filename).split('-')
     kernel = '-'.join(cols[2:5])
     host = cols[1]
     num = cols[5]
@@ -650,6 +650,20 @@ def main():
                 files.extend(sorted(glob.glob(os.path.join(filename, 'latencies-*'))))
             else:
                 print('file "' + filename + '" does not exist.')
+
+    # common part of file name:
+    common_name = os.path.commonprefix(['-'.join(os.path.basename(f).split('-')[9:]) for f in files])
+
+    if plots:
+        ax = plt.subplot(1, 1, 1)
+        logbins = np.logspace(2.0, 5.0, 100)
+        ax.set_title(common_name + ': kern latencies')
+        ax.set_xscale('log')
+        ax.set_xlabel('Jitter [ns]')
+        ax.set_yscale('log', nonposy='clip')
+        ax.set_ylim(0.5, 5000)
+        ax.set_ylabel('Count')
+                        
     # analyze files:
     for filename in files:
         with open(filename) as sf:
@@ -759,16 +773,18 @@ def main():
                                 testmode+' latencies>overruns')
                     if plots:
                         # plot:
-                        ax = plt.subplot(1, 1, 1)
-                        logbins = np.logspace(2.0, 5.0, 100)
-                        ax.hist(latencies, logbins)
-                        ax.set_title(testmode + ' latencies')
-                        ax.set_xscale('log')
-                        ax.set_xlabel('Jitter [ns]')
-                        ax.set_yscale('log', nonposy='clip')
-                        ax.set_ylim(0.5, len(latencies)/2)
-                        ax.set_ylabel('Count')
-                        plt.show()
+                        #ax = plt.subplot(1, 1, 1)
+                        #logbins = np.logspace(2.0, 5.0, 100)
+                        l = '-'.join(os.path.basename(filename).split('-')[9:-1])
+                        l = l.replace(common_name, '')
+                        ax.hist(latencies, logbins, alpha=0.5, label=l)
+                        #ax.set_title(testmode + ' latencies')
+                        #ax.set_xscale('log')
+                        #ax.set_xlabel('Jitter [ns]')
+                        #ax.set_yscale('log', nonposy='clip')
+                        #ax.set_ylim(0.5, len(latencies)/2)
+                        #ax.set_ylabel('Count')
+                        #plt.show()
                 if (testmode, 'switches', 'switches') in data:
                     # provide columns:
                     if not dt.exist(testmode+' switches'):
@@ -812,6 +828,11 @@ def main():
     for rs in remove_cols:
         dt.hide(rs.replace('_', ' ').replace(':', '>'))
     dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
+
+    # close plots:
+    if plots:
+        ax.legend()
+        plt.show()
 
 
 if __name__ == '__main__':
