@@ -3055,8 +3055,8 @@ function restore_test_batch {
 }
 
 function test_report {
-    if test -r testreport.py; then
-	python testreport.py ${HIDE_COLUMNS[@]/#/-r } $@
+    if test -r ${0%/*}/testreport.py; then
+	python ${0%/*}/testreport.py ${HIDE_COLUMNS[@]/#/-r } $@
 	return
     fi
     SORT=false

@@ -165,6 +165,10 @@ class DataTable:
             for c in range(c0, c1):
                 self.hidden[c] = True
 
+    def hide_all(self):
+        for c in range(len(self.hidden)):
+            self.hidden[c] = True
+
     def hide_empty_columns(self):
         for c in range(len(self.data)):
             # check for empty column:
@@ -180,11 +184,30 @@ class DataTable:
                         break
             if isempty:
                 self.hidden[c] = True
+
+    def show(self, column):
+        c0, c1 = self.find_col(column)
+        if c0 is not None:
+            for c in range(c0, c1):
+                self.hidden[c] = False
                 
-    def sort(self, column):
-        column = self.col(column)
-        if column is not None:
-            self.indices = sorted(range(len(self.data[column])), key=self.data[column].__getitem__)
+    def sort(self, columns):
+        if len(columns) == 0:
+            return
+        #cols = [self.col(c) for c in columns]
+        #self.indices = sorted(range(len(self.data[0])),
+        #                      key=lambda i: ([self.data[c][i] for c in cols]))
+        self.indices = range(len(self.data[0]))
+        for col in reversed(columns):
+            rev = False
+            if len(col) > 0 and col[0] in '^!':
+                rev = True
+                col = col[1:]
+            c = self.col(col)
+            if c is None:
+                print('sort column ' + col + ' not found')
+                continue
+            self.indices = sorted(self.indices, key=self.data[c].__getitem__, reverse=rev)
 
     def write_keys(self, sep='>', space=None):
         fh = self.nsecs * ['']
@@ -541,6 +564,14 @@ def parse_filename(filename, dt):
     date = '-'.join(cols[6:9])
     quality = cols[-1]
     load = cols[-2]
+    if load == 'cimn':
+        load = 'full'
+    else:
+        load.replace('c', 'cpu ')
+        load.replace('i', 'io ')
+        load.replace('m', 'mem ')
+        load.replace('n', 'net ')
+        load = load.strip()
     param = cols[9:-2]
     cpuid=0
     latency='-'
@@ -600,10 +631,10 @@ def analyze_overruns(data):
     maxv = np.max(data)
     return [maxv, len(data)]
 
+
 def main():
     init = 10
     outlier = 0.0  # percent
-    sort_col = '-1'
     number_cols = None
     table_format = 'dat'
 
@@ -619,8 +650,12 @@ def main():
     parser.add_argument('-r', action='append', default=[],
                         type=str, metavar='COLUMN', dest='remove_cols',
                         help='do not show (remove) column %(metavar)s (index or header)')
-    parser.add_argument('-s', default=sort_col, type=str, metavar='COLUMN', dest='sort_col',
-                        help='sort results according to %(metavar)s (index or header)')
+    parser.add_argument('--select', action='append', default=[],
+                        type=str, metavar='COLUMN', dest='select_cols',
+                        help='select column %(metavar)s (index or header) only')
+    parser.add_argument('-s', action='append', default=[],
+                        type=str, metavar='COLUMN', dest='sort_columns',
+                        help='sort results according to %(metavar)s (index or header). Several columns can be specified by repeated -s options. If the first character of %(metavar)s is a ^, then the column is sorted in reversed order.')
     parser.add_argument('-f', nargs='?', default=table_format, const='num', dest='table_format',
                         choices=DataTable.formats,
                         help='output format of summary table (defaults to "%(default)s")')
@@ -637,8 +672,9 @@ def main():
     outlier = args.outlier
     number_cols = args.number_cols
     table_format = args.table_format
-    sort_col = args.sort_col
+    sort_columns = args.sort_columns
     remove_cols = args.remove_cols
+    select_cols = args.select_cols
     plots = args.plots
 
     dt = DataTable()
@@ -673,20 +709,25 @@ def main():
 
     # list files:
     files = []
+    sort_name = False
     if len(args.file) == 0:
         files = sorted(glob.glob('latencies-*'))
     else:
         for filename in args.file:
             if filename == 'avg':
-                sort_col = 'avg'
+                sort_columns = ['kern latencies>mean jitter'] + sort_columns
+                sort_name = True
             elif filename == 'max':
-                sort_col = 'max'
+                sort_columns = ['kern latencies>max'] + sort_columns
+                sort_name = True
             elif os.path.isfile(filename):
                 files.append(filename)
             elif os.path.isdir(filename):
                 files.extend(sorted(glob.glob(os.path.join(filename, 'latencies-*'))))
             else:
                 print('file "' + filename + '" does not exist.')
+    if sort_name and len(args.file) == 1 and len(files) == 0:
+        files = sorted(glob.glob('latencies-*'))
 
     # common part of file name:
     common_name = os.path.commonprefix(['-'.join(os.path.basename(f).split('-')[9:]) for f in files])
@@ -849,13 +890,13 @@ def main():
     # write results:
     dt.hide_empty_columns()
     dt.adjust_columns()
-    if sort_col == 'avg':
-        sort_col = 'kern latencies>mean jitter'
-    elif sort_col == 'max':
-        sort_col = 'kern latencies>max'
-    dt.sort(sort_col)
+    dt.sort([s.replace('_', ' ').replace(':', '>') for s in sort_columns])
     for rs in remove_cols:
         dt.hide(rs.replace('_', ' ').replace(':', '>'))
+    if len(select_cols) > 0:
+        dt.hide_all()
+        for ss in select_cols:
+            dt.show(ss.replace('_', ' ').replace(':', '>'))
     dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
 
     # close plots:
