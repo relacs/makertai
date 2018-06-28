@@ -164,6 +164,22 @@ class DataTable:
         if c0 is not None:
             for c in range(c0, c1):
                 self.hidden[c] = True
+
+    def hide_empty_columns(self):
+        for c in range(len(self.data)):
+            # check for empty column:
+            isempty = True
+            for v in self.data[c]:
+                if isinstance(v, float):
+                    if not m.isnan(v):
+                        isempty = False
+                        break
+                else:
+                    if v != '-':
+                        isempty = False
+                        break
+            if isempty:
+                self.hidden[c] = True
                 
     def sort(self, column):
         column = self.col(column)
@@ -528,12 +544,16 @@ def parse_filename(filename, dt):
     param = cols[9:-2]
     cpuid=0
     latency='-'
-    performance='no'
+    governor='-'
     remove = []
     for p in param:
         if p[0:3] == 'cpu':
             cpuid = int(p[3:])
             remove.append('cpu%d' % cpuid)
+        if 'isol' in p:
+            remove.append(p)
+        if p == 'plain':
+            remove.append(p)
         if p == 'nolatency':
             latency='user'
             remove.append(p)
@@ -544,7 +564,7 @@ def parse_filename(filename, dt):
             latency='kern'
             remove.append(p)
         if p == 'performance':
-            performance='yes'
+            governor='perf'
             remove.append(p)
     for r in remove:
         param.remove(r)
@@ -554,7 +574,7 @@ def parse_filename(filename, dt):
     dt.add_value(param, 'data>kernel parameter')
     dt.add_value(load, 'data>load')
     dt.add_value(latency, 'data>latency')
-    dt.add_value(performance, 'data>performance')
+    dt.add_value(governor, 'data>governor')
     dt.add_value(quality, 'data>quality')
 
     return cpuid
@@ -624,18 +644,17 @@ def main():
     dt = DataTable()
     dt.add_section('data')
     dt.add_column('num', '1', '%3s')
-    dt.add_column('kernel parameter', '1', '%-20s')
+    dt.add_column('kernel parameter', '1', '%-5s')
     dt.add_column('isolcpu', '1', '%2d')
     dt.add_column('cpu', '1', '%2d')
-    dt.add_column('load', '1', '%-5s')
+    dt.add_column('load', '1', '%-4s')
     dt.add_column('latency', '1', '%-4s')
-    dt.add_column('performance', '1', '%-3s')
+    dt.add_column('governor', '1', '%-3s')
     dt.add_column('temp', 'C', '%5.1f')
     dt.add_column('freq', 'GHz', '%6.3f')
     dt.add_column('poll', '%', '%5.1f')
     dt.add_column('quality', '1', '%-7s')
-    #for testmode in ['kern', 'kthreads', 'user']:
-    for testmode in ['kern']:
+    for testmode in ['kern', 'kthreads', 'user']:
         dt.add_section(testmode+' latencies')
         dt.add_column('mean jitter', 'ns', '%7.0f')
         dt.add_column('stdev', 'ns', '%7.0f')
@@ -761,6 +780,8 @@ def main():
                         cols = line.split()
                         if len(cols) >= 5:
                             cpufreq = float(cols[4].strip())
+                            if cpufreq > 1000.0:
+                                cpufreq *= 0.001
                         if len(cols) >= 9:
                             poll = float(cols[8].strip().rstrip('%'))
                     if line.strip() == '':
@@ -783,15 +804,6 @@ def main():
             # analyze:
             for testmode in ['kern', 'kthreads', 'user']:
                 if (testmode, 'latency', 'latencies') in data:
-                    # provide columns:
-                    if not dt.exist(testmode+' latencies'):
-                        dt.setcol = len(dt.data)
-                        dt.add_section(testmode+' latencies')
-                        dt.add_column('mean jitter', 'ns', '%7.0f')
-                        dt.add_column('stdev', 'ns', '%7.0f')
-                        dt.add_column('max', 'ns', '%7.0f')
-                        dt.add_column('overruns', '1', '%6.0f')
-                        dt.add_column('n', 's', '%5d')
                     # analyze latency test:
                     latencies = data[testmode, 'latency', 'latencies']
                     overruns = data[testmode, 'latency', 'overruns']
@@ -815,23 +827,10 @@ def main():
                         #ax.set_ylabel('Count')
                         #plt.show()
                 if (testmode, 'switches', 'switches') in data:
-                    # provide columns:
-                    if not dt.exist(testmode+' switches'):
-                        dt.add_section(testmode+' switches')
-                        dt.add_column('susp', 'ns', '%5.0f')
-                        dt.add_column('sem', 'ns', '%5.0f')
-                        dt.add_column('rpc', 'ns', '%5.0f')
                     # analyze switches test:
                     dt.add_data(data[testmode, 'switches', 'switches'],
                                 testmode+' switches>susp')
                 if (testmode, 'preempt', 'latencies') in data:
-                    # provide columns:
-                    if not dt.exist(testmode+' preempt'):
-                        dt.add_section(testmode+' preempt')
-                        dt.add_column('max', 'ns', '%9.0f')
-                        dt.add_column('jitfast', 'ns', '%9.0f')
-                        dt.add_column('jitslow', 'ns', '%9.0f')
-                        dt.add_column('n', '1', '%5d')
                     # analyze preempt test:
                     dt.add_value(data[testmode, 'preempt', 'latencies'][-1],
                                  testmode+' preempt>max')
@@ -848,6 +847,7 @@ def main():
     #return
             
     # write results:
+    dt.hide_empty_columns()
     dt.adjust_columns()
     if sort_col == 'avg':
         sort_col = 'kern latencies>mean jitter'
