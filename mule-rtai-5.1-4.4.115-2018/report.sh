@@ -8,4 +8,4 @@ kern_latencies:stdev
 kern_latencies:max
 )
 
-../makertaikernel.sh report -f md ${SHOW_COLUMNS[@]/#/--select } -s ^load -s isolcpu
+../makertaikernel.sh report -f md ${SHOW_COLUMNS[@]/#/--select } -s ^load -s isolcpu -u

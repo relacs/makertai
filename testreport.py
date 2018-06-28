@@ -659,6 +659,8 @@ def main():
     parser.add_argument('-f', nargs='?', default=table_format, const='num', dest='table_format',
                         choices=DataTable.formats,
                         help='output format of summary table (defaults to "%(default)s")')
+    parser.add_argument('-u', default=True, action='store_false', dest='units',
+                        help='do not print units')
     parser.add_argument('-n', default=None, const='num', nargs='?', dest='number_cols',
                         choices=DataTable.column_numbering,
                         help='add line with column numbers/indices/letters to header')
@@ -670,6 +672,7 @@ def main():
 
     init = args.init
     outlier = args.outlier
+    units = 'row' if args.units else 'none'
     number_cols = args.number_cols
     table_format = args.table_format
     sort_columns = args.sort_columns
@@ -897,7 +900,7 @@ def main():
         dt.hide_all()
         for ss in select_cols:
             dt.show(ss.replace('_', ' ').replace(':', '>'))
-    dt.write(sys.stdout, number_cols=number_cols, table_format=table_format)
+    dt.write(sys.stdout, number_cols=number_cols, table_format=table_format, units=units)
 
     # close plots:
     if plots:
