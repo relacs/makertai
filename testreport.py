@@ -72,6 +72,14 @@ class DataTable:
                 for v in self.data[c]:
                     if w < len(v):
                         w = len(v)
+            else:
+                for v in self.data[c]:
+                    if isinstance(v, float) and m.isnan(v):
+                        s = '-'
+                    else:
+                        s = f % v
+                    if w < len(s):
+                        w = len(s)
             # set width of format string:
             f = f[:i0] + str(w) + f[i1:]
             self.formats[c] = f
@@ -524,7 +532,10 @@ class DataTable:
                 df.write(data_close)
                 if isinstance(self.data[c][k], float) and m.isnan(self.data[c][k]):
                     if format_width:
-                        fn = '%%%ds' % widths[c]
+                        if f[1] == '-':
+                            fn = '%%-%ds' % widths[c]
+                        else:
+                            fn = '%%%ds' % widths[c]
                         df.write(fn % '-')
                     else:
                         df.write('-')
@@ -684,31 +695,31 @@ def main():
     dt.add_section('data')
     dt.add_column('num', '1', '%3s')
     dt.add_column('kernel parameter', '1', '%-5s')
-    dt.add_column('isolcpu', '1', '%2d')
+    dt.add_column('isolcpu', '1', '%d')
     dt.add_column('cpu', '1', '%2d')
-    dt.add_column('load', '1', '%-4s')
-    dt.add_column('latency', '1', '%-4s')
-    dt.add_column('governor', '1', '%-3s')
-    dt.add_column('temp', 'C', '%5.1f')
-    dt.add_column('freq', 'GHz', '%6.3f')
-    dt.add_column('poll', '%', '%5.1f')
-    dt.add_column('quality', '1', '%-7s')
+    dt.add_column('load', '1', '%-s')
+    dt.add_column('latency', '1', '%-s')
+    dt.add_column('governor', '1', '%-s')
+    dt.add_column('temp', 'C', '%4.1f')
+    dt.add_column('freq', 'GHz', '%5.3f')
+    dt.add_column('poll', '%', '%4.1f')
+    dt.add_column('quality', '1', '%-s')
     for testmode in ['kern', 'kthreads', 'user']:
         dt.add_section(testmode+' latencies')
-        dt.add_column('mean jitter', 'ns', '%7.0f')
-        dt.add_column('stdev', 'ns', '%7.0f')
-        dt.add_column('max', 'ns', '%7.0f')
-        dt.add_column('overruns', '1', '%6.0f')
-        dt.add_column('n', 's', '%5d')
+        dt.add_column('mean jitter', 'ns', '%3.0f')
+        dt.add_column('stdev', 'ns', '%3.0f')
+        dt.add_column('max', 'ns', '%3.0f')
+        dt.add_column('overruns', '1', '%1.0f')
+        dt.add_column('n', 's', '%d')
         dt.add_section(testmode+' switches')
-        dt.add_column('susp', 'ns', '%5.0f')
-        dt.add_column('sem', 'ns', '%5.0f')
-        dt.add_column('rpc', 'ns', '%5.0f')
+        dt.add_column('susp', 'ns', '%3.0f')
+        dt.add_column('sem', 'ns', '%3.0f')
+        dt.add_column('rpc', 'ns', '%3.0f')
         dt.add_section(testmode+' preempt')
-        dt.add_column('max', 'ns', '%9.0f')
-        dt.add_column('jitfast', 'ns', '%9.0f')
-        dt.add_column('jitslow', 'ns', '%9.0f')
-        dt.add_column('n', '1', '%5d')
+        dt.add_column('max', 'ns', '%3.0f')
+        dt.add_column('jitfast', 'ns', '%3.0f')
+        dt.add_column('jitslow', 'ns', '%3.0f')
+        dt.add_column('n', '1', '%d')
 
     # list files:
     files = []
