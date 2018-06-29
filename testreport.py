@@ -12,77 +12,127 @@ class DataTable:
 
     def __init__(self):
         self.data = []
+        self.shape = (0, 0)
         self.header = []
         self.nsecs = 0
         self.units = []
         self.formats = []
         self.hidden = []
         self.setcol = 0
+        self.addcol = 0
         self.indices = None
 
     def add_section(self, label):
-        if self.setcol >= len(self.data):
+        if self.addcol >= len(self.data):
             self.header.append([label])
             self.units.append('')
             self.formats.append('')
             self.hidden.append(False)
             self.data.append([])
         else:
-            self.header[self.setcol] = [label] + self.header[self.setcol]
-        if self.nsecs < len(self.header[self.setcol]):
-            self.nsecs = len(self.header[self.setcol])
-        self.setcol = len(self.data)-1
+            self.header[self.addcol] = [label] + self.header[self.addcol]
+        if self.nsecs < len(self.header[self.addcol]):
+            self.nsecs = len(self.header[self.addcol])
+        self.addcol = len(self.data)-1
+        self.shape = (self.columns(), self.rows())
+        return self.addcol
         
     def add_column(self, label, unit, formats):
-        if self.setcol >= len(self.data):
+        if self.addcol >= len(self.data):
             self.header.append([label])
             self.formats.append(formats)
             self.units.append(unit)
             self.hidden.append(False)
             self.data.append([])
         else:
-            self.header[self.setcol] = [label] + self.header[self.setcol]
-            self.units[self.setcol] = unit
-            self.formats[self.setcol] = formats
-        self.setcol = len(self.data)
+            self.header[self.addcol] = [label] + self.header[self.addcol]
+            self.units[self.addcol] = unit
+            self.formats[self.addcol] = formats
+        self.addcol = len(self.data)
+        self.shape = (self.columns(), self.rows())
+        return self.addcol-1
+
+    def section(self, column, level):
+        column = self.col(column)
+        return self.header[column][level]
+    
+    def set_section(self, label, column, level):
+        column = self.col(column)
+        self.header[column][level] = label
+        return column
+
+    def label(self, column):
+        column = self.col(column)
+        return self.header[column][0]
+
+    def set_label(self, label, column):
+        column = self.col(column)
+        self.header[column][0] = label
+        return column
+
+    def unit(self, column):
+        column = self.col(column)
+        return self.unit[column]
+
+    def set_unit(self, unit, column):
+        column = self.col(column)
+        self.units[column] = unit
+        return column
+
+    def format(self, column):
+        column = self.col(column)
+        return self.format[column]
+
+    def set_format(self, format, column):
+        column = self.col(column)
+        self.formats[column] = format
+        return column
+
+    def columns(self):
         return len(self.header)
 
-    def set_format(self, column, format):
-        column = self.col(column)
-        if column is None:
-            column = self.setcol
-        self.formats[column] = format
-        self.setcol = column
+    def rows(self):
+        return max(map(len, self.data))
+        
+    def __len__(self):
+        return self.columns()
 
-    def adjust_columns(self):
-        for c, f in enumerate(self.formats):
-            w = 0
-            # extract width from format:
-            i0 = 1
-            if f[1] == '-' :
-                i0 = 2
-            i1 = f.find('.')
-            if len(f[i0:i1]) > 0:
-                w = int(f[i0:i1])
-            # adapt width to header:
-            if w < len(self.header[c][0]):
-                w = len(self.header[c][0])
-            # adapt width to data:
-            if f[-1] == 's':
-                for v in self.data[c]:
-                    if w < len(v):
-                        w = len(v)
+    def __iter__(self):
+        self.iter_counter = -1
+        return self
+
+    def __next__(self):
+        self.iter_counter += 1
+        if self.iter_counter >= self.columns():
+            raise StopIteration
+        else:
+            return self.data[self.iter_counter]
+
+    def next(self):  # python 2
+        return self.__next__()
+
+    def __getitem__(self, key):
+        if type(key) is tuple:
+            index = key[0]
+        else:
+            index = key
+        if isinstance(index, slice):
+            start = self.col(index.start)
+            stop = self.col(index.stop)
+            newindex = slice(start, stop, index.step)
+        elif type(index) is list or type(index) is tuple or type(index) is np.ndarray:
+            newindex = [self.col(inx) for inx in index]
+            if type(key) is tuple:
+                return [self.data[i][key[1]] for i in newindex]
             else:
-                for v in self.data[c]:
-                    if isinstance(v, float) and m.isnan(v):
-                        s = '-'
-                    else:
-                        s = f % v
-                    if w < len(s):
-                        w = len(s)
-            # set width of format string:
-            f = f[:i0] + str(w) + f[i1:]
-            self.formats[c] = f
+                return [self.data[i] for i in newindex]
+        else:
+            newindex = self.col(index)
+        if type(key) is tuple:
+            return self.data[newindex][key[1]]
+        else:
+            return self.data[newindex]
+        return None
 
     def _find_col(self, ss, si, minns, maxns, c0, strict=True):
         if si >= len(ss):
@@ -150,11 +200,19 @@ class DataTable:
             column = self.setcol
         self.data[column].append(val)
         self.setcol = column+1
+        self.shape = (self.columns(), self.rows())
 
     def add_data(self, data, column=None):
         for val in data:
             self.add_value(val, column)
             column = None
+
+    def set_column(self, column):
+        col = self.col(column)
+        if col is None:
+            print('column ' + column + ' not found')
+        self.setcol = col
+        return col
 
     def fill_data(self):
         # maximum rows:
@@ -166,6 +224,8 @@ class DataTable:
         for c in range(len(self.data)):
             while len(self.data[c]) < r:
                 self.data[c].append(float('NaN'))
+        self.setcol = 0
+        self.shape = (self.columns(), self.rows())
 
     def hide(self, column):
         c0, c1 = self.find_col(column)
@@ -198,13 +258,42 @@ class DataTable:
         if c0 is not None:
             for c in range(c0, c1):
                 self.hidden[c] = False
+
+    def adjust_columns(self):
+        for c, f in enumerate(self.formats):
+            w = 0
+            # extract width from format:
+            i0 = 1
+            if f[1] == '-' :
+                i0 = 2
+            i1 = f.find('.')
+            if len(f[i0:i1]) > 0:
+                w = int(f[i0:i1])
+            # adapt width to header:
+            if w < len(self.header[c][0]):
+                w = len(self.header[c][0])
+            # adapt width to data:
+            if f[-1] == 's':
+                for v in self.data[c]:
+                    if w < len(v):
+                        w = len(v)
+            else:
+                for v in self.data[c]:
+                    if isinstance(v, float) and m.isnan(v):
+                        s = '-'
+                    else:
+                        s = f % v
+                    if w < len(s):
+                        w = len(s)
+            # set width of format string:
+            f = f[:i0] + str(w) + f[i1:]
+            self.formats[c] = f
                 
     def sort(self, columns):
+        if type(columns) is not list and type(columns) is not tuple:
+            columns = [ columns ]
         if len(columns) == 0:
             return
-        #cols = [self.col(c) for c in columns]
-        #self.indices = sorted(range(len(self.data[0])),
-        #                      key=lambda i: ([self.data[c][i] for c in cols]))
         self.indices = range(len(self.data[0]))
         for col in reversed(columns):
             rev = False
@@ -900,7 +989,7 @@ def main():
     # write table keys for makertaikernel.cfg file:
     #dt.write_keys(':', '_')
     #return
-            
+                
     # write results:
     dt.hide_empty_columns()
     dt.adjust_columns()
