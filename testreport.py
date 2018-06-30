@@ -747,15 +747,15 @@ def main():
                         help='number of initial lines to be skipped (defaults to %(default)s)')
     parser.add_argument('-p', default=outlier, type=float, metavar='PERCENT', dest='outlier',
                         help='percentile defining outliers (defaults to %(default)s%%)')
-    parser.add_argument('-r', action='append', default=[],
-                        type=str, metavar='COLUMN', dest='remove_cols',
-                        help='do not show (remove) column %(metavar)s (index or header)')
-    parser.add_argument('--select', action='append', default=[],
-                        type=str, metavar='COLUMN', dest='select_cols',
-                        help='select column %(metavar)s (index or header) only')
     parser.add_argument('-s', action='append', default=[],
                         type=str, metavar='COLUMN', dest='sort_columns',
                         help='sort results according to %(metavar)s (index or header). Several columns can be specified by repeated -s options. If the first character of %(metavar)s is a ^, then the column is sorted in reversed order.')
+    parser.add_argument('--hide', action='append', default=[],
+                        type=str, metavar='COLUMN', dest='hide_cols',
+                        help='hide column %(metavar)s (index or header)')
+    parser.add_argument('--select', action='append', default=[],
+                        type=str, metavar='COLUMN', dest='select_cols',
+                        help='select column %(metavar)s (index or header) only')
     parser.add_argument('-f', nargs='?', default=table_format, const='num', dest='table_format',
                         choices=DataTable.formats,
                         help='output format of summary table (defaults to "%(default)s")')
@@ -776,7 +776,7 @@ def main():
     number_cols = args.number_cols
     table_format = args.table_format
     sort_columns = args.sort_columns
-    remove_cols = args.remove_cols
+    hide_cols = args.hide_cols
     select_cols = args.select_cols
     plots = args.plots
 
@@ -994,8 +994,8 @@ def main():
     dt.hide_empty_columns()
     dt.adjust_columns()
     dt.sort([s.replace('_', ' ').replace(':', '>') for s in sort_columns])
-    for rs in remove_cols:
-        dt.hide(rs.replace('_', ' ').replace(':', '>'))
+    for hs in hide_cols:
+        dt.hide(hs.replace('_', ' ').replace(':', '>'))
     if len(select_cols) > 0:
         dt.hide_all()
         for ss in select_cols:
