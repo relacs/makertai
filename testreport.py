@@ -134,6 +134,17 @@ class DataTable:
             return self.data[newindex]
         return None
 
+    def key_value(self, col, row, missing='-'):
+        col = self.col(col)
+        if col is None:
+            return ''
+        if isinstance(self.data[col][row], float) and m.isnan(self.data[col][row]):
+            v = missing
+        else:
+            u = self.units[col] if self.units[col] != '1' else ''
+            v = (self.formats[col] % self.data[col][row]) + u
+        return self.header[col][0] + '=' + v
+
     def _find_col(self, ss, si, minns, maxns, c0, strict=True):
         if si >= len(ss):
             return None, None, None, None
@@ -237,7 +248,7 @@ class DataTable:
         for c in range(len(self.hidden)):
             self.hidden[c] = True
 
-    def hide_empty_columns(self):
+    def hide_empty_columns(self, missing='-'):
         for c in range(len(self.data)):
             # check for empty column:
             isempty = True
@@ -247,7 +258,7 @@ class DataTable:
                         isempty = False
                         break
                 else:
-                    if v != '-':
+                    if v != missing:
                         isempty = False
                         break
             if isempty:
@@ -259,7 +270,7 @@ class DataTable:
             for c in range(c0, c1):
                 self.hidden[c] = False
 
-    def adjust_columns(self):
+    def adjust_columns(self, missing='-'):
         for c, f in enumerate(self.formats):
             w = 0
             # extract width from format:
@@ -280,7 +291,7 @@ class DataTable:
             else:
                 for v in self.data[c]:
                     if isinstance(v, float) and m.isnan(v):
-                        s = '-'
+                        s = missing
                     else:
                         s = f % v
                     if w < len(s):
@@ -323,7 +334,7 @@ class DataTable:
         bm = chr(ord(a)+m)
         return index2aa(d-1, a) + bm if d else bm
 
-    def write(self, df, table_format='dat', units="row", number_cols=None):
+    def write(self, df, table_format='dat', units="row", number_cols=None, missing='-'):
         # table_format: "dat", "ascii", "rtai", "csv", "md", "html", "tex"
         # units: "row", "header" or "none"
         # number_cols: add row with colum numbers ('num', 'index') or letters ('aa' or 'AA')
@@ -625,9 +636,9 @@ class DataTable:
                             fn = '%%-%ds' % widths[c]
                         else:
                             fn = '%%%ds' % widths[c]
-                        df.write(fn % '-')
+                        df.write(fn % missing)
                     else:
-                        df.write('-')
+                        df.write(missing)
                 else:
                     ds = f % self.data[c][k]
                     if not format_width:
@@ -756,7 +767,7 @@ def main():
     parser.add_argument('--select', action='append', default=[],
                         type=str, metavar='COLUMN', dest='select_cols',
                         help='select column %(metavar)s (index or header) only')
-    parser.add_argument('-f', nargs='?', default=table_format, const='num', dest='table_format',
+    parser.add_argument('-f', nargs='?', default=table_format, const='dat', dest='table_format',
                         choices=DataTable.formats,
                         help='output format of summary table (defaults to "%(default)s")')
     parser.add_argument('-u', default=True, action='store_false', dest='units',
@@ -764,8 +775,11 @@ def main():
     parser.add_argument('-n', default=None, const='num', nargs='?', dest='number_cols',
                         choices=DataTable.column_numbering,
                         help='add line with column numbers/indices/letters to header')
-    parser.add_argument('-g', default=False, action='store_true', dest='plots',
-                        help='show histogram plots')
+    parser.add_argument('-m', default='-', dest='missing',
+                        help='string used to indicate missing values')
+    parser.add_argument('-g', nargs='?', default='no', const='show',
+                        dest='plots', metavar='FILE',
+                        help='show or save histogram plots to %(metavar)s')
     parser.add_argument('file', nargs='*', default='', type=str,
                         help='latency-* file with RTAI test results')
     args = parser.parse_args()
@@ -775,17 +789,19 @@ def main():
     units = 'row' if args.units else 'none'
     number_cols = args.number_cols
     table_format = args.table_format
-    sort_columns = args.sort_columns
+    sort_columns = [s.replace('_', ' ').replace(':', '>') for s in args.sort_columns]
     hide_cols = args.hide_cols
     select_cols = args.select_cols
-    plots = args.plots
+    missing = args.missing
+    plots = False if args.plots == 'no' else True
+    plotfile = args.plots if plots and args.plots != 'show' else None
 
     dt = DataTable()
     dt.add_section('data')
     dt.add_column('num', '1', '%3s')
     dt.add_column('kernel parameter', '1', '%-5s')
-    dt.add_column('isolcpu', '1', '%d')
-    dt.add_column('cpu', '1', '%2d')
+    dt.add_column('isolcpus', '1', '%-d')
+    dt.add_column('cpu', '1', '%-d')
     dt.add_column('load', '1', '%-s')
     dt.add_column('latency', '1', '%-s')
     dt.add_column('governor', '1', '%-s')
@@ -836,13 +852,15 @@ def main():
     common_name = os.path.commonprefix(['-'.join(os.path.basename(f).split('-')[9:]) for f in files])
 
     if plots:
-        ax = plt.subplot(1, 1, 1)
+        fig = plt.figure(figsize=(5,3.5), dpi=80)
+        ax = fig.add_subplot(1, 1, 1)
         logbins = np.logspace(2.0, 5.0, 100)
-        ax.set_title(common_name + ': kern latencies')
+        #ax.set_title(common_name + ': kern latencies')
+        ax.set_title('kern latencies')
         ax.set_xscale('log')
         ax.set_xlabel('Jitter [ns]')
         ax.set_yscale('log', nonposy='clip')
-        ax.set_ylim(0.5, 5000)
+        ax.set_ylim(0.5, 1000)
         ax.set_ylabel('Count')
                         
     # analyze files:
@@ -894,7 +912,7 @@ def main():
                                 jitterslow.append(int(cols[5]))
 
             # gather other data:
-            isolcpu = float('NaN')
+            isolcpus = float('NaN')
             coretemp = float('NaN')
             cpufreq = float('NaN')
             poll = float('NaN')
@@ -907,7 +925,7 @@ def main():
                     inparameter = True
                 if inparameter:
                     if 'isolcpus' in line:
-                        isolcpu = int(list(filter(str.isdigit, line))[0])
+                        isolcpus = int(list(filter(str.isdigit, line))[0])
                     if line.strip() == '':
                         inparameter = False
                 if 'Environment' in line:
@@ -939,7 +957,7 @@ def main():
                         incputemperatures = False
 
             # fill table:                    
-            dt.add_value(isolcpu, 'data>isolcpu')
+            dt.add_value(isolcpus, 'data>isolcpus')
             dt.add_value(cpuid, 'data>cpu')
             dt.add_value(coretemp, 'data>temp')
             dt.add_value(cpufreq, 'data>freq')
@@ -957,19 +975,12 @@ def main():
                     dt.add_data(analyze_overruns(overruns[init:]),
                                 testmode+' latencies>overruns')
                     if plots:
-                        # plot:
-                        #ax = plt.subplot(1, 1, 1)
-                        #logbins = np.logspace(2.0, 5.0, 100)
-                        l = '-'.join(os.path.basename(filename).split('-')[9:-1])
-                        l = l.replace(common_name, '')
+                        if len(sort_columns) > 0:
+                            l = ', '.join([dt.key_value(s, -1, missing) for s in sort_columns])
+                        else:
+                            l = '-'.join(os.path.basename(filename).split('-')[9:-1])
+                            l = l.replace(common_name, '')
                         ax.hist(latencies, logbins, alpha=0.5, label=l)
-                        #ax.set_title(testmode + ' latencies')
-                        #ax.set_xscale('log')
-                        #ax.set_xlabel('Jitter [ns]')
-                        #ax.set_yscale('log', nonposy='clip')
-                        #ax.set_ylim(0.5, len(latencies)/2)
-                        #ax.set_ylabel('Count')
-                        #plt.show()
                 if (testmode, 'switches', 'switches') in data:
                     # analyze switches test:
                     dt.add_data(data[testmode, 'switches', 'switches'],
@@ -993,26 +1004,26 @@ def main():
     # write results:
     dt.hide_empty_columns()
     dt.adjust_columns()
-    dt.sort([s.replace('_', ' ').replace(':', '>') for s in sort_columns])
+    dt.sort(sort_columns)
     for hs in hide_cols:
         dt.hide(hs.replace('_', ' ').replace(':', '>'))
     if len(select_cols) > 0:
         dt.hide_all()
         for ss in select_cols:
             dt.show(ss.replace('_', ' ').replace(':', '>'))
-    dt.write(sys.stdout, number_cols=number_cols, table_format=table_format, units=units)
+    dt.write(sys.stdout, number_cols=number_cols, table_format=table_format,
+             units=units, missing=missing)
 
     # close plots:
     if plots:
         ax.legend()
-        plt.show()
+        fig.tight_layout()
+        if plotfile is None:
+            plt.show()
+        else:
+            plt.savefig(plotfile)
+            plt.close()
 
 
 if __name__ == '__main__':
     main()
-
-# latency:
-#RTH|    lat min|    ovl min|    lat avg|    lat max|    ovl max|   overruns
-
-# prempt:          
-# RTH|     lat min|     lat avg|     lat max|    jit fast|    jit slow
