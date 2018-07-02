@@ -776,6 +776,9 @@ def main():
     parser.add_argument('--select', action='append', default=[],
                         type=str, metavar='COLUMN', dest='select_cols',
                         help='select column %(metavar)s (index or header) only')
+    parser.add_argument('--add', action='append', default=[],
+                        type=str, metavar='KEY=VALUE', dest='add_cols',
+                        help='add a column with header KEY and data value VALUE')
     parser.add_argument('-f', nargs='?', default=table_format, const='dat', dest='table_format',
                         choices=DataTable.formats,
                         help='output format of summary table (defaults to "%(default)s")')
@@ -801,12 +804,18 @@ def main():
     sort_columns = [s.replace('_', ' ').replace(':', '>') for s in args.sort_columns]
     hide_cols = args.hide_cols
     select_cols = args.select_cols
+    add_cols = args.add_cols
     missing = args.missing
     plots = False if args.plots == 'no' else True
     plotfile = args.plots if plots and args.plots != 'show' else None
 
     dt = DataTable()
     dt.add_section('data')
+    add_data = []
+    for a in add_cols:
+        ak, av = a.split('=')
+        dt.add_column(ak, '1', '%-s')
+        add_data.append(av)
     dt.add_column('num', '1', '%3s')
     dt.add_column('kernel parameter', '1', '%-5s')
     dt.add_column('isolcpus', '1', '%-d')
@@ -965,7 +974,8 @@ def main():
                     if line.strip() == '':
                         incputemperatures = False
 
-            # fill table:                    
+            # fill table:
+            dt.add_data(add_data, 'data>')
             dt.add_value(isolcpus, 'data>isolcpus')
             dt.add_value(cpuid, 'data>cpu')
             dt.add_value(coretemp, 'data>temp')
