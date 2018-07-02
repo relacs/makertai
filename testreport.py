@@ -417,8 +417,8 @@ class DataTable:
             bottom_line = False
         elif table_format[0] == 'h':
             format_width = False
-            begin_str = '<table>\n'
-            end_str = '</table>\n'
+            begin_str = '<table>\n<thead>\n'
+            end_str = '</tbody>\n</table>\n'
             header_start='  <tr>\n    <th align="left"'
             header_sep = '</th>\n    <th align="left"'
             header_close = '>'
@@ -614,6 +614,9 @@ class DataTable:
                     w = widths[c]
                     df.write(w*'-')
                 df.write(header_end.replace(' ', '-'))
+        # start table data:
+        if table_format[0] == 'h':
+            df.write('</thead>\n<tbody>\n')
         # data:
         if self.indices is None or len(self.indices) != len(self.data[0]):
             self.indices = range(len(self.data[0]))
