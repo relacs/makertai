@@ -419,7 +419,7 @@ class DataTable:
             format_width = False
             begin_str = '<table>\n<thead>\n'
             end_str = '</tbody>\n</table>\n'
-            header_start='  <tr>\n    <th align="left"'
+            header_start='  <tr class="header">\n    <th align="left"'
             header_sep = '</th>\n    <th align="left"'
             header_close = '>'
             header_end='</th>\n  </tr>\n'
@@ -620,9 +620,13 @@ class DataTable:
         # data:
         if self.indices is None or len(self.indices) != len(self.data[0]):
             self.indices = range(len(self.data[0]))
-        for k in self.indices:
+        for i, k in enumerate(self.indices):
             first = True
-            df.write(data_start)
+            if table_format[0] == 'h':
+                eo = "even" if i % 2 == 1 else "odd"
+                df.write('  <tr class"%s">\n    <td' % eo)
+            else:
+                df.write(data_start)
             for c, f in enumerate(self.formats):
                 if self.hidden[c]:
                     continue
@@ -630,7 +634,9 @@ class DataTable:
                     df.write(data_sep)
                 first = False
                 if table_format[0] == 'h':
-                    if f[1] != '-':
+                    if f[1] == '-':
+                        df.write(' align="left"')
+                    else:
                         df.write(' align="right"')
                 df.write(data_close)
                 if isinstance(self.data[c][k], float) and m.isnan(self.data[c][k]):
