@@ -185,21 +185,34 @@ Select "Yes".
 Then the new kernel is being compiled - be patient.
 
 
-### Testing and improving
+### Getting a running RTAI-patched kernel
 
-1. Test and improve your RTAI kernel as described in sections
-   [Testing the RTAI-patched kernel][testrtai] and [Improve the
-   RTAI-patched kernel][configurekernel] below.
+ * In case booting into the RTAI-patched kernel failed, reboot into
+   your standard kernel (select it via the grub menu) and build
+   a kernel without the RTAI patch:
+   ```
+   sudo ./makertaikernel.sh buildplain
+   ```
+   This uses the kernel configuration of your running kernel.
+   First do not change it, then if this kernel runsmodify the
+   then modify the kernel configuration as described in
+   the previous section [Basic kernel configuration][basickernelconfigu	ration]
+   to figure out the culprit.
    
-2. If you did not start out with a kernel version matching the version
+ * If you did not start out with a kernel version matching the version
    of your RTAI-patched kernel, and you are going to change the kernel
    configuration, then you should run
    ```
    sudo ./makertaikernel.sh -c mod
    ```
    in order to deselect all unused kernel modules from compilation.
-   This speeds up the following kernel builds dramatically! Reboot
-   into the new kernel.
+   This speeds up the following kernel builds dramatically!
+
+ * Once you successfully booted into the RTAI-patched kernel (this is
+   usually the case) then you can go on with testing and improving
+   your RTAI kernel as described in sections 
+   [Testing the RTAI-patched kernel][testrtai] and 
+   [Improve the RTAI-patched kernel][configurekernel] below.
 
 
 ## Testing the RTAI-patched kernel
@@ -208,8 +221,11 @@ Testing your RTAI patched kernel is crucial for a good real-time performance!
 
 The `makertaikernel.sh` script can also be used for testing with the
 advantage that it writes the test results and the kernel configuration
-into files. It is also possible to run whole test batches
-automatically.
+into files. 
+
+The script can also run whole test batches automatically where the RTAI-patched kernel
+is tested with various kernel parameters and kernels with new configurations are compiled
+as specified in a batch file (see [Test batches][testbatches] below).
 
 See
 ```
@@ -1185,4 +1201,5 @@ interesting:
 [basickernelconfiguration]: #basic-kernel-configuration
 [testrtai]: #testing-the-rtai-patched-kernel
 [testreport]: #test-reports
+[testbatches]: #test-batches
 [configurekernel]: #improve-the-rtai-patched-kernel

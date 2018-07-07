@@ -23,6 +23,7 @@
                               # Shahbaz Youssefi's RTAI clone on github:
                               # - RTAI: clone https://github.com/ShabbyX/RTAI.git
 : ${RTAI_PATCH:="hal-linux-4.4.115-x86-10.patch"} # rtai patch to be used (set with -p)
+                              # can be "none" if no patch should be applied
 
 : ${KERNEL_CONFIG:="old"}  # whether and how to initialize the kernel configuration 
                            # (set with -c) 
@@ -427,6 +428,7 @@ EOF
     cat <<EOF
 -s xxx: use xxx as the base directory where to put the kernel sources (KERNEL_PATH=${KERNEL_PATH})
 -p xxx: use rtai patch file xxx (RTAI_PATCH=${RTAI_PATCH})
+        set to "none" if no patch should be applied
 -c xxx: generate a new kernel configuration (KERNEL_CONFIG=${KERNEL_CONFIG}):
         - old: use the kernel configuration of the currently running kernel
         - def: generate a kernel configuration using make defconfig
@@ -1289,22 +1291,29 @@ function unpack_kernel {
 }
 
 function patch_kernel {
-    cd $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}
-    if $NEW_KERNEL; then
-	if ! check_kernel_patch; then
-	    cd - &> /dev/null
-	    return 1
-	fi
-	echo_log "apply rtai patch $RTAI_PATCH to kernel sources"
-	if ! $DRYRUN; then
-	    if ! patch -p1 < ${LOCAL_SRC_PATH}/${RTAI_DIR}/base/arch/$RTAI_MACHINE/patches/$RTAI_PATCH; then
-		echo_log "Failed to patch the linux kernel \"$KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}\"!"
+    if test "x$RTAI_PATCH" == "xnone"; then
+	echo_log "No rtai patch applied to kernel sources"
+	MAKE_NEWLIB=false
+	MAKE_RTAI=false
+	MAKE_COMEDI=false
+    else
+	cd $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}
+	if $NEW_KERNEL; then
+	    if ! check_kernel_patch; then
 		cd - &> /dev/null
 		return 1
 	    fi
+	    echo_log "apply rtai patch $RTAI_PATCH to kernel sources"
+	    if ! $DRYRUN; then
+		if ! patch -p1 < ${LOCAL_SRC_PATH}/${RTAI_DIR}/base/arch/$RTAI_MACHINE/patches/$RTAI_PATCH; then
+		    echo_log "Failed to patch the linux kernel \"$KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}\"!"
+		    cd - &> /dev/null
+		    return 1
+		fi
+	    fi
 	fi
+	cd - &> /dev/null
     fi
-    cd - &> /dev/null
 }
 
 function prepare_kernel_configs {
@@ -4633,7 +4642,23 @@ function build_all {
 
 function buildplain_kernel {
     check_root
-    unpack_kernel && build_kernel
+
+    SECONDS=0
+
+    NEW_KERNEL_CONFIG=true
+    uninstall_kernel
+    unpack_kernel && build_kernel || return 1
+
+    SECS=$SECONDS
+    let MIN=${SECS}/60
+    let SEC=${SECS}%60
+
+    echo_log
+    echo_log "Done!"
+    echo_log "Build took ${SECS} seconds ($(printf "%02d:%02d" $MIN $SEC))."
+    echo_log "Please reboot into the ${KERNEL_NAME} kernel by executing"
+    echo_log "$ ./${MAKE_RTAI_KERNEL} reboot"
+    echo_log
 }
 
 function clean_all {
