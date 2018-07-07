@@ -4,6 +4,8 @@ import glob
 import argparse
 import math as m
 import numpy as np
+# include this only when needed!
+# matplotlib also needs python-tk package
 import matplotlib.pyplot as plt
 
 class DataTable:

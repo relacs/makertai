@@ -2880,7 +2880,7 @@ function test_batch_script {
 
     # abort testing if the machine was manually booted:
     if test -f /boot/grub/grubenv; then
-	TEST_STATE=$(grub-editenv - list | awk -F '=' '/^rtaitest_state=/ {print $2}')
+	TEST_STATE=$(grub-editenv - list | grep '^rtaitest_state=' | cut -d '=' -f 2-)
 	if test "x$TEST_STATE" != "xreboot"; then
 	    echo_kmsg "TEST WAS INTERRUPTED BY MANUAL BOOT"
 	    echo_log "TEST WAS INTERRUPTED BY MANUAL BOOT"
@@ -2891,13 +2891,13 @@ function test_batch_script {
 
     # get paramter for current test/compile:
     if test -f /boot/grub/grubenv; then
-	WORKING_DIR=$(grub-editenv - list | awk -F '=' '/^rtaitest_pwd=/ {print $2}')
-	BATCH_FILE=$(grub-editenv - list | awk -F '=' '/^rtaitest_file=/ {print $2}')
-	INDEX=$(grub-editenv - list | awk -F '=' '/^rtaitest_index=/ {print $2}')
-	KERNEL_DESCR=$(grub-editenv - list | awk -F '=' '/^rtaitest_kernel_descr=/ {print $2}')
-	BATCH_DESCR=$(grub-editenv - list | awk -F '=' '/^rtaitest_param_descr=/ {print $2}')
-	TEST_TOTAL_TIME=$(grub-editenv - list | awk -F '=' '/^rtaitest_time=/ {print $2}')
-	TEST_SPECS=$(grub-editenv - list | awk -F '=' '/^rtaitest_specs=/ {print $2}')
+	WORKING_DIR="$(grub-editenv - list | grep '^rtaitest_pwd=' | cut -d '=' -f 2-)"
+	BATCH_FILE="$(grub-editenv - list | grep '^rtaitest_file=' | cut -d '=' -f 2-)"
+	INDEX="$(grub-editenv - list | grep '^rtaitest_index=' | cut -d '=' -f 2-)"
+	KERNEL_DESCR="$(grub-editenv - list | grep '^rtaitest_kernel_descr=' | cut -d '=' -f 2-)"
+	BATCH_DESCR="$(grub-editenv - list | grep '^rtaitest_param_descr=' | cut -d '=' -f 2-)"
+	TEST_TOTAL_TIME="$(grub-editenv - list | grep '^rtaitest_time=' | cut -d '=' -f 2-)"
+	TEST_SPECS="$(grub-editenv - list | grep '^rtaitest_specs=' | cut -d '=' -f 2-)"
     else
 	MF=/var/log/messages
 	grep -q -a -F "NEXT TEST BATCH" $MF || MF=/var/log/messages.1

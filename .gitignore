@@ -1,4 +1,5 @@
 *~
+*.pyc
 makertaikernel.cfg
 makertaikernel.log
 *.mrk
