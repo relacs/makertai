@@ -2,8 +2,8 @@
 Building and testing RTAI-patched linux kernels.
 
 - `makertaikernel.sh`: bash-script for building and testing RTAI-patched linux kernels
-- `testreport.py`: python script for analyzing and summarizing test
-  reports produced by the `makertaikernel.sh` script (work in progress).
+- `testreport.py`: python script for analyzing, displaying, and summarizing test
+  reports produced by the `makertaikernel.sh` script.
 - `alive.sh`: script producing some output on your console to
   indicate that the machine is still alive.
 - `cpulatency`: kernel module for setting CPU latencies to zero via the PM-QoS kernel 
@@ -40,7 +40,8 @@ the `setup_*` functions.
 
 ### Preparations
 
-When you use `makertaikernel.sh` for the first time, then follow these instructions:
+When you use `makertaikernel.sh` for the first time, then follow the
+following instructions:
 
 1. Change into the directory with the `makertaikernel.sh` script.
 
@@ -74,6 +75,8 @@ When you use `makertaikernel.sh` for the first time, then follow these instructi
 
 
 ### Building the first kernel
+
+The you can go on by building the RTAI-patched kernel for the first time:
 
 1. Select a Linux kernel and the corresponding RTAI patch from the displayed list.
 
@@ -187,17 +190,19 @@ Then the new kernel is being compiled - be patient.
 
 ### Getting a running RTAI-patched kernel
 
+In rare cases the RTAI-patched linux kernel fails already at boot-up.
+
  * In case booting into the RTAI-patched kernel failed, reboot into
    your standard kernel (select it via the grub menu) and build
    a kernel without the RTAI patch:
    ```
    sudo ./makertaikernel.sh buildplain
    ```
-   This uses the kernel configuration of your running kernel.
-   First do not change it, then if this kernel runsmodify the
-   then modify the kernel configuration as described in
-   the previous section [Basic kernel configuration][basickernelconfigu	ration]
-   to figure out the culprit.
+   This uses the kernel configuration of your running kernel.  First
+   do not change it, then if this kernel runs, modify the the kernel
+   configuration step-by-step as described in the previous section
+   [Basic kernel configuration][basickernelconfigu ration] to figure
+   out the culprit.
    
  * If you did not start out with a kernel version matching the version
    of your RTAI-patched kernel, and you are going to change the kernel
@@ -215,37 +220,25 @@ Then the new kernel is being compiled - be patient.
    [Improve the RTAI-patched kernel][configurekernel] below.
 
 
-## Testing the RTAI-patched kernel
+## Checking RTAI modules
 
-Testing your RTAI patched kernel is crucial for a good real-time performance!
-
-The `makertaikernel.sh` script can also be used for testing with the
-advantage that it writes the test results and the kernel configuration
-into files. 
-
-The script can also run whole test batches automatically where the RTAI-patched kernel
-is tested with various kernel parameters and kernels with new configurations are compiled
-as specified in a batch file (see [Test batches][testbatches] below).
-
-See
-```
-./makertaikernel.sh help test
-```
-for a summary of test options that are described in more detail in the following sections.
-
-The script will first ask for a short description of your kernel
-configuration and parameter. This string is then used for naming the
-files for the test results.
-
-First test whether the RTAI modules can be loaded:
+If you managed to boot in to the RTAI-patched linux kernel, then check
+whether the RTAI modules can be loaded without problems. For this run
 ```
 sudo ./makertaikernel.sh test none
 ```
-If you only want to check insmodding `rtai_hal` then call
+This will load (`insmod`) the `rtai_hal`, `rtai_sched`, `rtai_math`,
+and `comedi` kernel modules.  Afterwards, the modules are unloaded
+(`rmmod`) again.
+
+If you only want to check loading `rtai_hal` then call
 ```
 sudo ./makertaikernel.sh test hal none
 ```
 Equivalently, you can use the `sched` and `math` option.
+
+### TODO
+no saving and naming of test results when doing this manually
 
 If this fails:
 - Make sure you have the `STACKPROTECTOR` set to "None" or "Regular" (see [Basic kernel configuration][basickernelconfiguration])
@@ -255,22 +248,197 @@ If this fails:
   ```
   for some hints.
 
-Once the RTAI modules load flawlessly you can proceed with running
-the kernel tests from the RTAI test suite by calling
+Once the RTAI modules load flawlessly you can proceed with checking
+the RTAI performance as described in the next section.
+
+
+## Testing the RTAI-patched kernel
+
+Testing and improving your RTAI patched kernel is crucial for a good
+real-time performance!
+
+The `makertaikernel.sh` script can also be used for testing with the
+advantage that it writes the test results and the kernel configuration
+into files. 
+
+The script can also run whole test batches automatically where the
+RTAI-patched kernel is tested with various kernel parameters and
+kernels with new configurations are compiled as specified in a batch
+file (see [Test batches][testbatches] below).
+
+See
+```
+./makertaikernel.sh help test
+```
+for a summary of test options that are described in more detail in the
+following sections.
+
+Run the kernel tests from the RTAI test suite by calling
 ```
 sudo ./makertaikernel.sh test
 ```
+The script will first ask for a short description of your kernel
+configuration and parameter. This string is then used for naming the
+files for the test results.
+
 This runs the kernel latency, switch, and preempt tests.
 
 Each of the tests need to be manually terminated by pressing `CTRL-C`.
 
-All three tests are available for kernel, kernel threads, and user space.
-They can be selected in the following way:
+All three tests are available for kernel, kernel threads, and user
+space test suites.  They can be selected in the following way:
 ```
 sudo ./makertaikernel.sh test kern     # runs the kern tests
 sudo ./makertaikernel.sh test kthreads # runs the kernel threads tests
 sudo ./makertaikernel.sh test user     # runs the user tests
 sudo ./makertaikernel.sh test all      # runs all tests
+```
+
+How to read and interpret test results is described in section [Test
+results][testresults].
+
+
+### Run tests under load
+
+To really check out the performance of the kernel you should run the
+tests under heavy load. This can be easily controlled by adding one or
+several of the following keywords to the test options:
+- `cpu`: run computations on each core.
+- `io` : do some file reading and writing.
+- `mem`: do some memory access.
+- `net`: produce network traffic.
+- `full`: all of the above.
+For example
+```
+./makertaikernel.sh test cpu net
+```
+will run the kern tests with cpu and network load.
+
+
+### Run tests on a specific CPU core
+
+In particular when checking the `isolcpus` kernel parameter you may
+want to run the latency test on a specific CPU. You can specify the
+CPU id on which you want to run the tests with `cpu=<id>`, where
+`<id>` is the CPU id, first CPU is 0. For example:
+```
+./makertaikernel.sh test cpu=2
+```
+will run the kern tests on the third CPU.
+
+
+### Requesting zero CPU latency
+
+To be done
+
+
+### Automatized testing
+
+For automatic termination of the tests (no `CTRL-C` required) provide
+the duration for the latency test as a simple number (in seconds):
+```
+sudo ./makertaikernel.sh test 60       # run the kern latency test for 60 seconds
+```
+
+For preventing any user interaction you can also provide the test
+description after the "auto" keyword (here "basic"):
+```
+sudo ./makertaikernel.sh test 60 auto basic
+```
+
+
+### Test batches
+
+For a completely automized series of tests of various kernel
+parameters and kernel configurations you can prepare a file with the
+necessary instructions (see below) and pass it to the sript with the
+`batch` option:
+```
+sudo ./makertaikernel.sh test batch <test-batch-file>
+```
+This will successively reboot into the RTAI kernel with the kernel
+parameter set to the ones specified by the KERNEL_PARAM variable and
+as specified in <test-batch-file>, and runs the tests as specified by
+the test key words that have been described above (without the "auto"
+command).
+
+For example,
+```
+sudo ./makertaikernel.sh test sched kern kthreads 240 batch <test-batch-file>
+```
+would test loading of the `rtai_hal` and `rtai_sched` modules,
+run both the `kern` and `kthreads` tests, and abort the `latency`
+tests after 240 seconds for each configuration specified in the file
+<test-batch-file>.
+
+Special lines in <test-batch-file> cause reboots into the default
+kernel and building an RTAI-patched kernel with a new configuration.
+
+
+#### Format of test-batch files
+In a batch file
+- everything behind a hash ('#') is a comment that is completely ignored
+- empty lines are ignored
+- a line of the format
+    ```
+    <descr> : <load/cpu> : <params>
+    ```
+    describes a configuration to be tested:
+    - `<descr>` is a one-word string describing the kernel parameter (a
+       description of the load settings is added automatically to the
+       description)
+    - `<load/cpu>` defines the load processes to be started before
+      testing (cpu io mem net full, see above) and/or the CPUs on which
+      the test should be run (cpu=<CPUIDS>, see above)
+    - `<param>` is a list of kernel parameter to be used.
+- a line of the format
+  ```
+  <descr> : CONFIG : <file>
+  ```
+  specifies a new kernel configuration stored in `<file>`,
+  that is compiled after booting into the default kernel.
+  `<descr>` describes the kernel configuration; it is used for naming successive tests.
+
+  Actually, `<file>` can be everything the -c otion is accepting. This
+  will mostly be actual kernel configuration files, for example from
+  the `/boot/` directory, the `config-*` files saved along with the test results,
+  or configuration files generated and saved by `makertaikernel.sh prepare`. In particular
+  ```
+  <descr> : CONFIG : backup
+  ```
+  compiles a kernel with the configuration of the kernel at the beginning of the tests.
+  This is particularly usefull as the last line of a batch file.
+- The first line  of the batch file can be just
+  ```
+  <descr> : CONFIG :
+  ```
+  this sets `<descr>` as the description of the already existing RTAI
+  kernel for the following tests.
+
+Example batch file:
+```
+  noacpi : CONFIG :
+  idlenohz : : idle=poll nohz=off
+  nodyntics : CONFIG : config-nodyntics
+  idleisol : cpu io : idle=poll isolcpus=0,1
+  isol2 : io cpu=2 : isolcpus=2
+```
+
+Use 
+```
+./makertaikernel.sh prepare
+```
+to quickly generate various kernel configurations that you can use in a batch file.
+
+**Note:** Running a test batch makes your computer practially unuseable, because it
+will repeatedly reboot.
+
+If you reboot or restart your computer during a running test batch
+(because a test hangs), the test batch stops itself automatically.
+If you want to abort a running test batch then log in and run
+```
+sudo killall makertaikernel.sh      # to kill the already scheduled reboot
+makertaikernel.sh restore testbatch # to really stop the test batch
 ```
 
 
@@ -374,12 +542,14 @@ You can generate a summary report from all your tested kernels by means of
 ./makertaikernel.sh report tests/latencies-* | less -S  # report of all latencies-* files in tests/
 ```
 
-The python script `testreport.py` also summarizes test results. It is meant
-as an improvement of the `makertaikernel.sh report` function, but it
-is work in progress. Check
+Check
 ```
-python testreport.py --help
+./makertaikernel.sh report --help
 ```
+for further options.
+
+In particular, the `-g` switch produces a graphical comparison of the
+latency histograms.
 
 
 ### Interpreting test results
@@ -448,143 +618,153 @@ The reported switching times should be well below 1000ns.
 Finally the preempt test is run.
 
 
-### Run tests under load
-
-To really check out the performance of the kernel you should run the tests 
-under heavy load. This can be easily controlled by adding one or several of the following keywords to the test options:
-- `cpu`: run heavy computations on each core.
-- `io` : do some heavy file reading and writing.
-- `mem`: do some heavy memory access.
-- `net`: produce network traffic.
-- `full`: all of the above.
-For example
-```
-./makertaikernel.sh test cpu net
-```
-will run the kern tests with cpu and network load.
-
-
-### Run tests on a specific CPU core
-
-In particular when checking the `isolcpu` kernel parameter you may
-want to run the latency test on a specific CPU. You can specify the
-CPU id on which you want to run the tests with `cpu=<id>`, where
-`<id>` is the CPU id, first CPU is 0. For example:
-```
-./makertaikernel.sh test cpu=2
-```
-will run the kern tests on the third CPU.
-
-
-### Automatized testing
-
-For automatic termination of the tests (no `CTRL-C` required) provide the duration for the
-latency test as a simple number (in seconds):
-```
-sudo ./makertaikernel.sh test 60       # run the kern latency test for 60 seconds
-```
-
-For preventing any user interaction you can also provide the test
-description after the "auto" keyword (here "basic"):
-```
-sudo ./makertaikernel.sh test 60 auto basic
-```
-
-
-#### Test batches
-
-For a completely automized series of tests of various kernel
-parameters and kernel configurations under different loads you can
-prepare a file with the necessary instructions (see below) and pass it
-to the sript with the `batch` option:
-```
-sudo ./makertaikernel.sh test batch <test-batch-file>
-```
-This will successively reboot into the RTAI kernel with the kernel
-parameter set to the ones specified by the KERNEL_PARAM variable and
-as specified in <test-batch-file>, and runs the tests as specified by
-the previous commands (without the "auto" command). 
-
-For example,
-```
-sudo ./makertaikernel.sh test sched kern kthreads 240 batch <test-batch-file>
-```
-would test loading of the `rtai_hal` and `rtai_sched` modules,
-run both the `kern` and `kthreads` tests, and abort the `latency`
-tests after 240 seconds for each configuration specified in the file
-<test-batch-file>.
-
-Special lines in <test-batch-file> cause reboots into the default
-kernel and building an RTAI-patched kernel with a new configuration.
-
-
-#### Format of test-batch files
-In a batch file
-- everything behind a hash ('#') is a comment that is completely ignored
-- empty lines are ignored
-- a line of the format
-  ```
-  <descr> : <load/cpu> : <params>
-  ```
-  describes a configuration to be tested:
-  - `<descr>` is a one-word string describing the kernel parameter 
-     (a description of the load settings is added automatically to the description)
-  - `<load/cpu>` defines the load processes to be started before testing (cpu io mem net full, see above) and/or the CPUs on which the test should be run (cpu=<CPUIDS>, see above)
-  - `<param>` is a list of kernel parameter to be used.
-  .
-- a line of the format
-  ```
-  <descr> : CONFIG : <file>
-  ```
-  specifies a new kernel configuration stored in `<file>`,
-  that is compiled after booting into the default kernel.
-  `<descr>` describes the kernel configuration; it is used for naming successive tests.
-
-  Actually, `<file>` can be everything the -c otion is accepting. This
-  will mostly be actual kernel configuration files, for example from
-  the `/boot/` directory, the `config-*` files saved along with the test results,
-  or configuration files generated and saved by `makertaikernel.sh prepare`. In particular
-  ```
-  <descr> : CONFIG : backup
-  ```
-  compiles a kernel with the configuration of the kernel at the beginning of the tests.
-  This is particularly usefull as the last line of a batch file.
-- The first line  of the batch file can be just
-  ```
-  <descr> : CONFIG :
-  ```
-  this sets `<descr>` as the description of the already existing RTAI kernel for the following tests.
-
-Example batch file:
-```
-  lowlatency : CONFIG :
-  idlenohz : : idle=poll nohz=off
-  nodyntics : CONFIG : config-nodyntics
-  idleisol : cpu io : idle=poll isolcpus=0,1
-  isol2 : io cpu=2 : isolcpus=2
-```
-
-Use 
-```
-./makertaikernel.sh prepare
-```
-to quickly generate various kernel configurations that you can use in a batch file.
-
-**Note:** Running a test batch makes your computer practially unuseable, because it
-will repeatedly reboot.
-
-If you reboot or restart your computer during a running test batch
-(because a test hangs), the test batch stops itself automatically.
-If you want to abort a running test batch then log in and run
-```
-sudo killall makertaikernel.sh      # to kill the already scheduled reboot
-makertaikernel.sh restore testbatch # to really stop the test batch
-```
-
-
 ## Improve the RTAI-patched kernel
 
-If your test results are not satisfactory, then you need to pass
+Usually, the RTAI performance can be easily improved via a few kernel
+parameter. The following sections guide you through a mostly
+autamatized procedure that assists you in finding the best setting.
+
+
+### Disable CPU power saving modes
+
+Most importantly, for CPUs like Intel i3/i5/i7 CPUs,
+disabling CPU power saving modes improves real-time performance
+dramatically. Before you try anything else do:
+- Use the kernel parameter `idle=poll` to disable C-state transitions completely
+  by setting in the `makertaikernel.cfg` configuration file:
+  ```
+  KERNEL_PARAM="idle=poll"
+  KERNEL_PARAM_DESCR="poll"
+  ```
+  This is usually sufficient for a good RTAI performance.
+
+### Basic kernel parameter
+
+Go on with checking the following kernel parameter:
+- `tsc=reliable`
+- `tsc=noirqtime`
+- `highres=off`
+- `nohz=off`
+- `elevator=noop`
+- `nosoftlockup=0`
+
+You get these kernel parameters for a test batch file by running
+```
+./makertaikernel.sh test batch basics
+```
+then run
+```
+./makertaikernel.sh test batch testbasics.mrk
+```
+
+Check the test results with
+```
+./makertaikernel.sh report | less -S
+```
+
+Choose the one kernel parameter with the best `mean jitter` and/or
+best max jitter (if there is one).
+
+Add this kernel parameter to the `KERNEL_PARAM` variable in the configuration file
+and comment it out in the `testbasics.mrk` file.
+
+In case `nosoftlockup=0` is successfull:
+- it can be hardcoded into the kernel by setting `CONFIG_LOCKUP_DETECTOR=n`
+- or simpy echo a zero to `/proc/sys/kernel/watchdog`
+- see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/kernel-per-CPU-kthreads.txt?h=v4.14-rc2
+
+
+### Isolate CPUs for real time tasks 
+For further improving the RTAI performance, you might want to reserve
+at least one CPU for RTAI on a multi-core machine. You can isolate
+CPUs by using the kernel parameter
+```
+isolcpus=2,3
+```
+(for isolating the cores no. 2 and 3). Additional parameters are
+```
+isolcpus=2,3 nohz_full=2,3 rcu_nocbs=2,3
+```
+
+See the file `/usr/local/src/rtai/README.ISOLCPUS` for more details.
+
+You should check each of your CPUs. In particular running and
+isolating an RTAI task on the first CPU may result in worse
+perfromance than on the other CPUs.
+
+In addition to isolating a CPU you also need to make sure that the
+RTAI tests are run on that CPU. For this you need to modify the test
+sources. With the script this can be easily achieved by passing the
+`cpu=<CPUID>` option:
+```
+sudo ./makertaikernel.sh test cpu=2
+```
+will run the tests on CPU 2 (the third CPU).
+
+Running RTAI on isolated CPUs may reduce maximum jitter on an idle
+machine. Under load, isolation can improve mean and maximum latencies
+considerably.
+
+You get these kernel parameters for a test batch file by running
+```
+./makertaikernel.sh test batch isolcpus
+```
+It will test RTAI performance for each of your CPUs with and without load.
+Edit the file to adapt it to the number of CPUs you have on your machine.
+
+**Note:** You cannot isolate the CPU on which the system boots (usually cpu 0).
+
+Once you figured out which core is best go on with the test batch you get via
+```
+./makertaikernel.sh test batch nohzrcu
+```
+Set the right CPU id in this test batch.
+Read `Documentation/timers/NO_HZ.txt` for details.
+
+Linux Torvalds says:
+- rcuc 2. `CONFIG_RCU_BOOST=n`
+- rcuc 3. `CONFIG_RCU_NOCB_CPU=y` with `rcu_nocbs=` boot parameter
+(see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/kernel-per-CPU-kthreads.txt?h=v4.14-rc2)
+
+
+### Recheck basic kernel parameter
+
+With `idle=poll`, a basic kernel parameter set, and the best cpu
+isolation figured out, go on with rechecking the basic kernel
+parameter with and without load:
+```
+./makertaikernel.sh test cpu=1 full batch testbasics.mrk
+./makertaikernel.sh test cpu=1 batch testbasics.mrk
+```
+
+Remember the best setting from this test batch.
+
+
+### DMA
+
+- disable all DMA transfers by setting kernel parameter `libata.dma=0`.
+- If you still have IDE harddrives try `ide-core.nodma`.
+- `README.CONF_RMRKS`: LINUX use of DMA can add latency, especially when
+  it is supported in burst mode.
+
+You get a batch file for testing these kernel parameters by running
+```
+./makertaikernel.sh test batch dma
+```
+
+### Final testing
+
+Choose a few parameter combinations that turned out to be most
+successfull. Write them into a test batch file. Run it with much
+longer test times (e.g. 2000 seconds, or much more if you like):
+```
+./makertaikernel.sh test 2000 batch testfinal.mrk
+```
+
+
+## Further improving the RTAI-patched kernel
+
+If your test results are still not satisfactory, then you need to pass
 kernel parameters to the RTAI kernel or reconfigure the kernel,
 probably disabling some devices, compile and install the kernel again,
 and compile and install rtai again. The main culprits are power saving
@@ -677,6 +857,9 @@ be specified via the `KERNEL_PARAM` variable in the
 in the `KERNEL_PARAM_DESCR` variable by a single word, so that the
 test results can be appropriately named.
 
+Setting kernel parameter via the `KERNEL_PARAM` variable is in
+particular usefull when running test batches.
+
 For applying the kernel parameter permanently add them to the
 `GRUB_CMDLINE_RTAI` variable in `/etc/defaults/grub` and run
 `update-grub`.
@@ -684,120 +867,11 @@ For applying the kernel parameter permanently add them to the
 There are several interesting kernel parameter that influence the
 real-time performance.  See the file
 `Documentation/kernel-parameters.txt` in your linux kernel source tree
-(usually in `/usr/src`) for a documentation of all available kernel parameter.
+(usually in `/usr/src`) for a general documentation of all available
+kernel parameter.
 
-The following is a collection of hints on influential configuration
-parameter from all levels.
-
-
-### Disable CPU power saving modes
-
-Most importantly, for CPUs like Intel i3/i5/i7 CPUs,
-disabling CPU power saving modes improves real-time performance
-dramatically. Before you try anything else do:
-- Add the kernel parameter `idle=poll` to disable C-state transitions completely.
-  This is usually sufficient for a godd RTAI performance.
-
-
-### Hyperthreading
-
-`README.CONF_RMRKS` says: 
-- Under SMP set the number of CPUs equal to the real
-  ones and have it matched in RTAI, no hyperthreading intended.
-- Even if RTAI can work with hyperthreading enabled, such an option is deprecated
-  as a possible cause of latency; in any case try and verify if it is acceptable,
-  with your hardware and for your applications.
-
-So, check whether you have hyperthreading. Run
-```
-./makertaikernel.sh info cpus
-```
-The top of the output looks like this (Intel i7-4770):
-```
-CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):
-cpu topology                   cpu frequency scaling
-logical  socket  core  online  freq/MHz      governor
-  cpu0        0     0       1     0.800      ondemand
-  cpu1        0     1       1     0.800      ondemand
-  cpu2        0     2       1     0.800      ondemand
-  cpu3        0     3       1     0.800      ondemand
-  cpu4        0     0       1     0.800      ondemand
-  cpu5        0     1       1     1.000      ondemand
-  cpu6        0     2       1     1.200      ondemand
-  cpu7        0     3       1     1.400      ondemand
-```
-If in the "core_id" column the numbers appear twice or more
-often, then you run in hyperthreading mode (as is the case in the example).
-
-By reducing the number of CPUs to four, you can eliminate
-hyperthreading (see below).
-
-If the topology looks like this (Intel i7-3520M):
-```
-CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):
-cpu topology                   cpu frequency scaling
-logical  socket  core  online  freq/MHz      governor
-  cpu0        0     0       1     2.700      ondemand
-  cpu1        0     0       1     2.901      ondemand
-  cpu2        0     1       1     2.901      ondemand
-  cpu3        0     1       1     2.901      ondemand
-```
-the trick to simply reduce the number of cpus to the number of actual
-cores does not work. You need to switch off hyperthreading in the BIOS.
-
-This is an example of a machine without hyperthreading (Intel i5-3570):
-```
-CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):
-cpu topology                   cpu frequency scaling
-logical  socket  core  online  freq/MHz      governor
-  cpu0        0     0       1     3.400     powersave
-  cpu1        0     1       1     3.144     powersave
-  cpu2        0     2       1     2.863     powersave
-  cpu3        0     3       1     3.260     powersave
-```
-In this case you do not need to do anything.
-
-This is what you need to do when configuring the kernel:
-- In "Processor type and features": 
-  - In case you have a uniprocessor system, deselect "Symmetric
-    multi-processing support" (`SMP`)
-  - Set the "Maximum numbers of CPUs" (`NR_CPUS`) to the number of
-    physical cores you have in your machine. The `makertaiscript.sh
-   ` automatically sets the same number of CPUs for the RTAI configuration.  
-
-You can also do this via the kernel parameter:
-- `nr_cpus=<n>` Maximum number of processors that an SMP kernel could
-  support. n >= 1 limits the kernel to supporting 'n'
-  processors. Later in runtime you can not use hotplug cpu feature to
-  put more cpu back to online.  Just like you compile the kernel
-  NR_CPUS=n.
-
-Switch off individual CPUs:
-```
-echo 0 > /sys/devices/system/cpu/cpuX/online
-```
-This, however, crashes when inserting rtai_hal (even if
-CONFIG_RTAI_CPUS is adapted to the lower CPU count).
-
-For more information see:
-- https://serverfault.com/questions/235825/disable-hyperthreading-from-within-linux-no-access-to-bios?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
-- https://unix.stackexchange.com/questions/33450/checking-if-hyperthreading-is-enabled-or-not
-
-The related kernel configs in the "Processor type and features" submenu
-- "SMT (Hyperthreading) scheduler support"
-- "Multi-core scheduler support"
-
-do not seem to matter.
-
-
-### Cached memory disruption 
-
-`README.CONF_RMRKS` says: 
-- Cached memory disruption can add significant
-  latencies, till the cache becomes hot again, experienced first hand
-  after a far jump in the code and data in a digital controller.
-.
-???
+The following is a collection of various hints on possibly influential
+configuration parameter from all levels.
 
 
 ### CPU power management and frequency scaling
@@ -930,6 +1004,107 @@ More infos:
 - http://stackoverflow.com/questions/12111954/context-switches-much-slower-in-new-linux-kernels
 
 
+### Hyperthreading
+
+`README.CONF_RMRKS` says: 
+- Under SMP set the number of CPUs equal to the real
+  ones and have it matched in RTAI, no hyperthreading intended.
+- Even if RTAI can work with hyperthreading enabled, such an option is deprecated
+  as a possible cause of latency; in any case try and verify if it is acceptable,
+  with your hardware and for your applications.
+
+So, check whether you have hyperthreading. Run
+```
+./makertaikernel.sh info cpus
+```
+The top of the output looks like this (Intel i7-4770):
+```
+CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):
+cpu topology                   cpu frequency scaling
+logical  socket  core  online  freq/MHz      governor
+  cpu0        0     0       1     0.800      ondemand
+  cpu1        0     1       1     0.800      ondemand
+  cpu2        0     2       1     0.800      ondemand
+  cpu3        0     3       1     0.800      ondemand
+  cpu4        0     0       1     0.800      ondemand
+  cpu5        0     1       1     1.000      ondemand
+  cpu6        0     2       1     1.200      ondemand
+  cpu7        0     3       1     1.400      ondemand
+```
+If in the "core_id" column the numbers appear twice or more
+often, then you run in hyperthreading mode (as is the case in the example).
+
+By reducing the number of CPUs to four, you can eliminate
+hyperthreading (see below).
+
+If the topology looks like this (Intel i7-3520M):
+```
+CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):
+cpu topology                   cpu frequency scaling
+logical  socket  core  online  freq/MHz      governor
+  cpu0        0     0       1     2.700      ondemand
+  cpu1        0     0       1     2.901      ondemand
+  cpu2        0     1       1     2.901      ondemand
+  cpu3        0     1       1     2.901      ondemand
+```
+the trick to simply reduce the number of cpus to the number of actual
+cores does not work. You need to switch off hyperthreading in the BIOS.
+
+This is an example of a machine without hyperthreading (Intel i5-3570):
+```
+CPU topology, frequencies, and idle states (/sys/devices/system/cpu/*):
+cpu topology                   cpu frequency scaling
+logical  socket  core  online  freq/MHz      governor
+  cpu0        0     0       1     3.400     powersave
+  cpu1        0     1       1     3.144     powersave
+  cpu2        0     2       1     2.863     powersave
+  cpu3        0     3       1     3.260     powersave
+```
+In this case you do not need to do anything.
+
+This is what you need to do when configuring the kernel:
+- In "Processor type and features": 
+  - In case you have a uniprocessor system, deselect "Symmetric
+    multi-processing support" (`SMP`)
+  - Set the "Maximum numbers of CPUs" (`NR_CPUS`) to the number of
+    physical cores you have in your machine. The `makertaiscript.sh
+   ` automatically sets the same number of CPUs for the RTAI configuration.  
+
+You can also do this via the kernel parameter:
+- `nr_cpus=<n>` Maximum number of processors that an SMP kernel could
+  support. n >= 1 limits the kernel to supporting 'n'
+  processors. Later in runtime you can not use hotplug cpu feature to
+  put more cpu back to online.  Just like you compile the kernel
+  NR_CPUS=n.
+
+Switch off individual CPUs:
+```
+echo 0 > /sys/devices/system/cpu/cpuX/online
+```
+This, however, crashes when inserting rtai_hal (even if
+CONFIG_RTAI_CPUS is adapted to the lower CPU count).
+
+For more information see:
+- https://serverfault.com/questions/235825/disable-hyperthreading-from-within-linux-no-access-to-bios?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+- https://unix.stackexchange.com/questions/33450/checking-if-hyperthreading-is-enabled-or-not
+
+The related kernel configs in the "Processor type and features" submenu
+- "SMT (Hyperthreading) scheduler support"
+- "Multi-core scheduler support"
+
+do not seem to matter.
+
+
+### Cached memory disruption 
+
+`README.CONF_RMRKS` says: 
+- Cached memory disruption can add significant
+  latencies, till the cache becomes hot again, experienced first hand
+  after a far jump in the code and data in a digital controller.
+.
+???
+
+
 ### Select processor family
 
 `README.CONF_RMRKS` says: 
@@ -1015,13 +1190,6 @@ Devices to consider are:
 - Disable 'Error Detection and Correction (EDAC) units' (https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux_for_real_time/7/html-single/tuning_guide/index):
   - Device Drivers:
     - Disable "EDAC (Error Detection And Correction) reporting"
-
-- Disabling the thermal sysfs driver is sometimes great for latencies
-  but has no effect on periodic tasks ? ...:
-  - Device Drivers:
-    - Graphics support:
-      - Disable "Backlight & LCD device support"
-    - Disable "Generic Thermal sysfs driver"
   
 - Device Drivers:
   - Keep "Real Time Clock"
@@ -1063,37 +1231,13 @@ real-time perfomance (low latencies):
   - Processor type and features: 
     - Disable "Numa Memory Allocation and Scheduler Support"
 
-- HPET Timer (disabling it improves preempt jitter):
-  - Device Drivers:
-    - Character devices:
-      - Disable "HPET - High Precision Event Timer"
-
-- Disable IOMMU (no effect?):
-  - Processor type and features: 
-    - Disable "Old AMD GART IOMMU support"
-    - Disable "IBM Calgary IOMMU support"
-  - Device Drivers:
-    - Disable IOMMU Hardware Support
-
 - Maybe also try:
   - CONFIG_RCU_BOOST and CONFIG_RCU_KTHREAD_PRIO
 
 
 ### Kernel parameter
 
-Here is a list of potentially influential kernel parameter:
-
-Clocks and timers:
-- `nohz=off`
-- `tsc=reliable`
-- `highres=off`
-- `hpet=disable`
-- For scheduling interrupts read `Documentation/timers/NO_HZ.txt`
-- Also check out "nohalt" kernel parameter.
-You get these kernel parameters for a test batch file by running
-```
-./makertaikernel.sh test batch clocks
-```
+Here is a list of some more potentially influential kernel parameter:
 
 Advanced configuration and power interface (ACPI):
 - acpi=off    # often very effective, but weired system behavior
@@ -1120,13 +1264,6 @@ You get these kernel parameters for a test batch file by running
 ./makertaikernel.sh test batch apic
 ```
 
-Others:
-- disable all DMA transfers by setting kernel parameter `libata.dma=0`.
-- What about `ide-core.nodma` parameter (it's ide not sata!)?
-- What about ltpc=irq ?
-- `README.CONF_RMRKS`: LINUX use of DMA can add latency, especially when
-  it is supported in burst mode.
-
 After restart, check for the number of CPUs - they might be reduced
 if you disabled too much ACPI:
 ```
@@ -1134,72 +1271,14 @@ if you disabled too much ACPI:
 ```
 
 
-### Isolate CPUs for real time tasks 
-For further improving the RTAI performance, you might want to reserve
-at least one CPU for RTAI on a multi-core machine. You can isolate
-CPUs by using the kernel parameter
-```
-isolcpus=2,3
-```
-(for isolating the cores no. 2 and 3). Additional parameters are
-```
-isolcpus=2,3 nohz_full=2,3 rcu_nocbs=2,3
-```
-
-See the file `/usr/local/src/rtai/README.ISOLCPUS` for more details.
-
-You should check each of your CPUs. In particular running and
-isolating an RTAI task on the first CPU may result in worse
-perfromance than on the other CPUs.
-
-In addition to isolating a CPU you also need to make sure that the
-RTAI tests are run on that CPU. For this you need to modify the test
-sources. With the script this can be easily achieved by passing the
-`cpu=<CPUID>` option:
-```
-sudo ./makertaikernel.sh test cpu=2
-```
-will run the tests on CPU 2 (the third CPU).
-
-Running RTAI on isolated CPUs may reduce maximum jitter on an idle
-machine. Under load, isolation can improve mean and maximum latencies
-considerably.
-
-You get these kernel parameters for a test batch file by running
-```
-./makertaikernel.sh test batch isolcpus
-```
-It will test RTAI performance for each of your CPUs.
-Edit the file to adapt it to the number of CPUs you have on your machine.
-
-**Note:** You cannot isolate the CPU on which the system boots (usually cpu 0).
-
-
 ### Disable SMI interrupts
-Finally, there are the evil SMIs. They periodically produce some long latencies. See
+Finally, there are the evil SMIs. They might periodically produce some long latencies. See
 `/usr/local/src/rtai/base/arch/x86/calibration/README.SMI` and `README.SMISPV` for details.
-
-
-### Reduce OS jitter
-
-Linux Torvalds himself has an interesting page on how to reduce OS jitter:
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/kernel-per-CPU-kthreads.txt?h=v4.14-rc2
-
-I have not yet tried these suggestions. Most of them are probably
-dealt with by CPU isolation. Some suggestions, however, sound
-interesting:
-- kworker 3.a. `CONFIG_SLUB=y` rather than `CONFIG_SLAB=y`
-- kworker 3.e. boot with `elevator=noop`
-- rcuc 2. `CONFIG_RCU_BOOST=n`
-- rcuc 3. `CONFIG_RCU_NOCB_CPU=y` with `rcu_nocbs=` boot parameter
-- watchdog 1. `CONFIG_LOCKUP_DETECTOR=n`
-- watchdog 2. boot with `nosoftlockup=0`
-- watchdog 3. echo a zero to /proc/sys/kernel/watchdog
-
 
 [quickinstall]: #install-an-rtai-patched-linux-kernel-rtai-and-comedi
 [basickernelconfiguration]: #basic-kernel-configuration
 [testrtai]: #testing-the-rtai-patched-kernel
+[testresults]: #test-results
 [testreport]: #test-reports
 [testbatches]: #test-batches
 [configurekernel]: #improve-the-rtai-patched-kernel

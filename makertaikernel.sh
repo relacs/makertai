@@ -264,7 +264,7 @@ Usage:
 sudo ${MAKE_RTAI_KERNEL} [-d] [-n xxx] [-r xxx] [-k xxx] test [[hal|sched|math|comedi] [calib]
      [kern|kthreads|user|all|none] [cpu|io|mem|net|full] 
      [cpu=<CPUIDS>] [latency|cpulatency|cpulatencyall] [performance]
-     [<NNN>] [auto <XXX> | batch clocks|cstates|acpi|isolcpus|dma|poll|<FILE>]]
+     [<NNN>] [auto <XXX> | batch basics|cstates|acpi|isolcpus|dma|poll|<FILE>]]
 
 EOF
     help_kernel_options
@@ -324,7 +324,7 @@ automized by the following two options:
 For a completely automized series of tests of various kernel parameters and kernel configurations
 under different loads you may add as the last arguments:
   batch FILE     : automatically run tests with various kernel parameter and configurations as specified in FILE
-  batch clocks   : write a default batch file with clock and timer related kernel parameters to be tested
+  batch basics   : write a default batch file with basic kernel parameters to be tested
   batch cstates  : write a default batch file with c-states related kernel parameters to be tested
   batch acpi     : write a default batch file with acpi related kernel parameters to be tested
   batch apic     : write a default batch file with apic related kernel parameters to be tested
@@ -520,8 +520,8 @@ $ sudo ${MAKE_RTAI_KERNEL} test
 $ sudo ${MAKE_RTAI_KERNEL} test 30 auto basic
   automaticlly test the currently running kernel for 30 seconds and name it "basic".
 
-$ sudo ${MAKE_RTAI_KERNEL} test ${TEST_TIME_DEFAULT} batch testclocks.mrk
-  automaticlly test all the kernel parameter and kernel configurations specified in the file testclocks.mrk.
+$ sudo ${MAKE_RTAI_KERNEL} test ${TEST_TIME_DEFAULT} batch testbasics.mrk
+  automaticlly test all the kernel parameter and kernel configurations specified in the file testbasics.mrk.
 
 $ ${MAKE_RTAI_KERNEL} report avg | less -S
   view test results sorted with respect to the averaged maximum latency. 
@@ -2542,7 +2542,7 @@ function test_batch {
 
     # write default batch files:
     if ! test -f "$BATCH_FILE"; then
-	DEFAULT_BATCHES="clocks cstates acpi apic isolcpus dma poll"
+	DEFAULT_BATCHES="basics isolcpus nohzrcu dma cstates poll acpi apic"
 	for DEFAULT_BATCH in $DEFAULT_BATCHES; do
 	    if test "$BATCH_FILE" = "$DEFAULT_BATCH"; then
 		BATCH_FILE=test${DEFAULT_BATCH}.mrk
@@ -2553,9 +2553,9 @@ function test_batch {
 		fi
 
 		case $DEFAULT_BATCH in
-		    clocks) cat <<EOF > $BATCH_FILE
+		    basics) cat <<EOF > $BATCH_FILE
 # $VERSION_STRING
-# Batch file for testing RTAI kernel with various kernel parameter related to clocks and timers.
+# Batch file for testing RTAI kernel with basic kernel parameter.
 #
 # Each line has the format:
 # <description> : <load specification> : <kernel parameter>
@@ -2588,66 +2588,28 @@ function test_batch {
 # $ ./$MAKE_RTAI_KERNEL report | less -S
 
 # without additional kernel parameter:
-plain1 : :
+plain : :
 
 # clocks and timers:
-nohz : : nohz=off
 tscreliable : : tsc=reliable
 tscnoirqtime : : tsc=noirqtime
 highresoff : : highres=off
-#nolapictimer : : nolapic_timer  # no good
-clocksourcehpet : : clocksource=hpet
-clocksourcetsc : : clocksource=tsc
-hpetdisable : : hpet=disable
-skewtick : : skew_tick=1
+nohz : : nohz=off
+
+# more clocks and timers in case you want to try:
+#clocksourcehpet : : clocksource=hpet
+#clocksourcetsc : : clocksource=tsc
+#hpetdisable : : hpet=disable
+#skewtick : : skew_tick=1
+##nolapictimer : : nolapic_timer  # not good
+
+# other candidates:
+elevator : : elevator=noop
+nowatchdog : : nosoftlockup=0
+#nohalt : : nohalt # on IA-64 processors only
 
 # test again to see variability of results:
-plain2 : :
-EOF
-			;;
-
-		    cstates) cat <<EOF > $BATCH_FILE
-# $VERSION_STRING
-# Batch file for testing RTAI kernel with kernel parameter related to processor c-states.
-# You need to enable PM idle states in the kernel configuration.
-
-# c-states:
 plain : :
-idlepoll : : idle=poll
-idlehalt : : idle=halt
-intelcstate1 : : intel_idle.max_cstate=1
-processorcstate1 : : intel_idle.max_cstate=0 processor.max_cstate=1
-processorcstate0 : : intel_idle.max_cstate=0 processor.max_cstate=0
-nopstate : : intel_pstate=disable
-EOF
-			;;
-
-		    acpi) cat <<EOF > $BATCH_FILE
-# $VERSION_STRING
-# Batch file for testing RTAI kernel with various kernel parameter related to acpi.
-
-# acpi:
-plain : :
-#acpioff : : acpi=off    # often very effective, but weired system behavior
-acpinoirq : : acpi=noirq
-pcinoacpi : : pci=noacpi
-pcinomsi : : pci=nomsi
-EOF
-			;;
-
-		    apic) cat <<EOF > $BATCH_FILE
-# $VERSION_STRING
-# Batch file for testing RTAI kernel with various kernel parameter related to apic.
-
-# apic:
-plain : :
-noapic : : noapic
-nox2apic : : nox2apic
-x2apicphys : : x2apic_phys
-lapic : : lapic
-#nolapic : : nolapic    # we need the lapic timer!
-#nolapic_timer : : nolapic_timer    # we need the lapic timer!
-lapicnotscdeadl : : lapic=notscdeadline
 EOF
 			;;
 
@@ -2665,8 +2627,8 @@ plain : cpu=0 :
 plain : cpu=0 full :
 
 # isolcpus on cpu 0:
-isolcpus0 : cpu=0 : isolcpus=0,1
-isolcpus0 : cpu=0 full : isolcpus=0,1
+isolcpus0 : cpu=0 : isolcpus=0
+isolcpus0 : cpu=0 full : isolcpus=0
 
 # non-isolated on cpu 1:
 plain : cpu=1 :
@@ -2691,44 +2653,99 @@ plain : cpu=3 full :
 # isolcpus on cpu 3:
 isolcpus3 : cpu=3 : isolcpus=3
 isolcpus3 : cpu=3 full : isolcpus=3
+EOF
+			;;
 
-## On your best CPU keep going with testing:
-## Replace all "1" by the index of this CPU.
-## isolcpus on cpu 1 + nohz_full
-#isolcpus1-nohz : cpu=1 : isolcpus=1 nohz_full=1
-#isolcpus1-nohz : cpu=1 full : isolcpus=1 nohz_full=1
+		    nohzrcu) cat <<EOF > $BATCH_FILE
+# $VERSION_STRING
+# Batch file for testing RTAI kernel with cpu isolation.
+## Replace all "=1" by the index of your best CPU from the isolcpus tests.
 
-## isolcpus on cpu 1 + nohz_full +  rcu_nocbs
-#isolcpus1-nohz-rcu : cpu=1 : isolcpus=1 nohz_full=1 rcu_nocbs=1
-#isolcpus1-nohz-rcu : cpu=1 full : isolcpus=1 nohz_full=1 rcu_nocbs=1
+# isolcpus on cpu 1 + nohz_full:
+isolcpus1-nohz : cpu=1 : isolcpus=1 nohz_full=1
+isolcpus1-nohz : cpu=1 full : isolcpus=1 nohz_full=1
+
+# isolcpus on cpu 1 + nohz_full +  rcu_nocbs:
+isolcpus1-nohz-rcu : cpu=1 : isolcpus=1 nohz_full=1 rcu_nocbs=1
+isolcpus1-nohz-rcu : cpu=1 full : isolcpus=1 nohz_full=1 rcu_nocbs=1
 EOF
 			;;
 
 		    dma) cat <<EOF > $BATCH_FILE
 # $VERSION_STRING
-# batch file for testing RTAI kernel with cpu isolation
+# batch file for testing RTAI kernel with and without DMA.
 # Replace all "=1" by the index of the cpu you want to isolate.
 
 # non-isolated
 plain : cpu=1 io :
 nodma : cpu=1 io : libata.dma=0
+#noidedma : cpu=1 io : ide-core.nodma=0.0 # read Documentation/kernel-parameters.txt
 
 # isolcpus
 isolcpus1 : cpu=1 io : isolcpus=1
 nodma-isolcpus1 : cpu=1 io : libata.dma=0 isolcpus=1
+#noidedma : cpu=1 io : ide-core.nodma=0.0 isolcpus=1 # read Documentation/kernel-parameters.txt
+EOF
+			;;
+
+		    cstates) cat <<EOF > $BATCH_FILE
+# $VERSION_STRING
+# Batch file for testing RTAI kernel with kernel parameter related to processor c-states.
+# You need to enable PM idle states in the kernel configuration.
+
+# c-states:
+plain : :
+idlepoll : : idle=poll
+idlehalt : : idle=halt
+intelcstate1 : : intel_idle.max_cstate=1
+processorcstate1 : : intel_idle.max_cstate=0 processor.max_cstate=1
+processorcstate0 : : intel_idle.max_cstate=0 processor.max_cstate=0
+nopstate : : intel_pstate=disable
 EOF
 			;;
 
 		    poll) cat <<EOF > $BATCH_FILE
 # $VERSION_STRING
 # batch file for testing RTAI kernel with idle=poll and run-time alternatives.
-# Replace all "=0" by the index of the cpu where you want to run the tests.
+# Run these tests with a specified CPU for the tests (e.g. cpu=1)
 
-plain : cpu=0 :
-poll : cpu=0 : idle=poll
-plain : cpu=0 latency :
-plain : cpu=0 cpulatency :
-poll : cpu=0 : idle=poll
+plain : :
+poll : : idle=poll
+plain : latency :        # write zero to /dev/cpu_dma_latency file
+plain : cpulatencyall :  # use PM-QoS interface to request zero latency of all CPUs
+plain : cpulatency :     # use PM-QoS interface to request zero latency of the selected CPU
+poll : : idle=poll
+EOF
+			;;
+
+		    acpi) cat <<EOF > $BATCH_FILE
+# $VERSION_STRING
+# Batch file for testing RTAI kernel with various kernel parameter related to acpi.
+# Use only if you are curious...
+
+# acpi:
+plain : :
+#acpioff : : acpi=off    # often very effective, but weired system behavior
+acpinoirq : : acpi=noirq
+pcinoacpi : : pci=noacpi
+pcinomsi : : pci=nomsi
+EOF
+			;;
+
+		    apic) cat <<EOF > $BATCH_FILE
+# $VERSION_STRING
+# Batch file for testing RTAI kernel with various kernel parameter related to apic.
+# Use only if you are curious...
+
+# apic:
+plain : :
+noapic : : noapic
+nox2apic : : nox2apic
+x2apicphys : : x2apic_phys
+lapic : : lapic
+#nolapic : : nolapic    # we need the lapic timer!
+#nolapic_timer : : nolapic_timer    # we need the lapic timer!
+lapicnotscdeadl : : lapic=notscdeadline
 EOF
 			;;
 		esac
