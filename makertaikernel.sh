@@ -3421,8 +3421,10 @@ function update_rtai {
 	    fi
 	elif test -f ../${RTAI_DIR}.tar.bz2; then
 	    cd -
+	    echo_log "remove RTAI source tree in ${LOCAL_SRC_PATH}/${RTAI_DIR}"
+	    $DRYRUN || rm -rf ${RTAI_DIR}
 	    echo_log "unpack ${RTAI_DIR}.tar.bz2"
-	    tar xof ${RTAI_DIR}.tar.bz2
+	    $DRYRUN || tar xof ${RTAI_DIR}.tar.bz2
 	    cd -
 	fi
 	cd -
