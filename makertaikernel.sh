@@ -1347,8 +1347,8 @@ function prepare_kernel_configs {
 	i|I ) ABSOLUTE=false ;;
 	a|A ) ABSOLUTE=true ;;
 	'' ) ABSOLUTE=true ;;
-	* ) echo_log ""
-	    echo_log "Aborted"
+	* ) echo ""
+	    echo "Aborted"
 	    if ! $DRYRUN; then
 		cd $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}
 		rm .config.origmrk
@@ -1768,6 +1768,7 @@ function reboot_kernel {
 # XXX    : boot into rtai kernel with additional kernel parameter XXX
 # FILE   : boot into rtai kernel with kernel parameter taken from test results file FILE
     echo_log ""
+    chown --reference=. "$LOG_FILE"
     case $1 in
 	default)
 	    reboot_unset_kernel
@@ -2047,6 +2048,9 @@ function test_run {
 function test_kernel {
     check_root
 
+    echo_log "Test kernel ..."
+    chown --reference=. "$LOG_FILE"
+
     # check for kernel log messages:
     if ! test -f /var/log/messages; then
 	echo_log "/var/log/messages does not exist!"
@@ -2191,7 +2195,7 @@ function test_kernel {
     if test -n "$CPUIDS"; then
 	CPU_ID=${CPUIDS%%,*}
 	NAME="${NAME}-cpu${CPU_ID}"
-	setup_rtai "$CPUIDS"
+	setup_rtai "$CPUIDS" || return 1
     fi
 
     echo_log
@@ -2777,7 +2781,7 @@ EOF
 	let N_COMPILE-=1
     fi
     if test $N_TESTS -eq 0; then
-	echo_log "No valid configurations specified in file \"$BATCH_FILE\"!"
+	echo "No valid configurations specified in file \"$BATCH_FILE\"!"
 	exit 1
     fi
 
@@ -2812,6 +2816,7 @@ EOF
     echo_log "run \"test $TEST_SPECS\" on batch file \"$BATCH_FILE\" with content:"
     sed -e 's/ *#.*$//' $BATCH_FILE | grep ':.*:' | while read LINE; do echo_log "  $LINE"; done
     echo_log
+    chown --reference=. "$LOG_FILE"
 
     # read first line from configuration file:
     INDEX=1
@@ -2899,7 +2904,6 @@ function test_abort {
     restore_kernel_param
     reboot_unset_kernel
     echo_log
-    exit 0
 }
 
 function test_batch_script {
@@ -2915,6 +2919,7 @@ function test_batch_script {
 	    echo_kmsg "TEST WAS INTERRUPTED BY MANUAL BOOT"
 	    echo_log "TEST WAS INTERRUPTED BY MANUAL BOOT"
 	    test_abort
+	    exit 1
 	fi
 	grub-editenv - set rtaitest_state="run"
     fi
@@ -2949,6 +2954,7 @@ function test_batch_script {
     echo_log
     echo_log "Automatically start test $INDEX of $N_TESTS in file \"$BATCH_FILE\"."
     echo_log
+    chown --reference=. "$LOG_FILE"
 
     # read current DESCRIPTION and LOAD_MODE from configuration file:
     IFS=':' read DESCRIPTION LOAD_MODE NEW_KERNEL_PARAM < <(sed -e 's/ *#.*$//' $BATCH_FILE | grep ':.*:' | sed -n -e ${INDEX}p)
@@ -3011,6 +3017,7 @@ function test_batch_script {
 	    echo_log "Missing kernel configuration!"
 	    echo_kmsg "Missing kernel configuration!"
 	    test_abort
+	    exit 1
 	fi
 	echo_log "Compile new kernel:"
 	echo_kmsg "START COMPILE NEW KERNEL"
@@ -3024,6 +3031,7 @@ function test_batch_script {
 	    echo_kmsg "FAILED TO BUILD KERNEL"
 	    echo_log "FAILED TO BUILD KERNEL"
 	    test_abort
+	    exit 1
 	else
 	    echo_kmsg "END COMPILE NEW KERNEL"
 	fi
@@ -3044,8 +3052,11 @@ function test_batch_script {
 
 	# run tests:
 	echo_log "test kernel ${KERNEL_DESCR}${BATCH_DESCR}${DESCRIPTION}:"
-	test_kernel $TEST_SPECS $LOAD_MODE auto "${KERNEL_DESCR}${BATCH_DESCR}${DESCRIPTION}"
-	echo_log
+	if ! test_kernel $TEST_SPECS $LOAD_MODE auto "${KERNEL_DESCR}${BATCH_DESCR}${DESCRIPTION}"; then
+	    test_abort
+	else
+	    echo_log
+	fi
     fi
 
     if test "$INDEX" -gt "$N_TESTS"; then
@@ -3059,7 +3070,7 @@ function test_batch_script {
 	grub-editenv - set rtaitest_state="reboot"
     fi
     reboot_cmd
-    sleep 300
+    sleep 60
     reboot_cmd cold
 
     exit 0
@@ -3698,7 +3709,7 @@ function setup_rtai {
     done
     if test $CPUMASK -eq 0; then
 	echo_log "No valid CPU ids specified (comma separated list of CPU ids)."
-	exit 1
+	return 1
     fi
     if test -d ${LOCAL_SRC_PATH}/$RTAI_DIR; then
  	echo_log "Set CPU mask for kern/latency test to $CPUMASK"
@@ -4465,7 +4476,7 @@ function setup_features {
 		grub ) setup_grub ;;
 		comedi ) setup_comedi ;;
 		kernel ) setup_kernel_param $KERNEL_PARAM ;;
-		rtai ) setup_rtai "$2"; break ;;
+		rtai ) setup_rtai "$2" ;;
 		* ) echo "unknown target $TARGET" ;;
 	    esac
 	done
@@ -4955,7 +4966,7 @@ case $ACTION in
 
     test ) 
 	test_kernel $@
-	exit 0 ;;
+	exit $? ;;
 
     report ) 
 	test_report $@
