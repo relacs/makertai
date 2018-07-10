@@ -1451,7 +1451,9 @@ function config_kernel {
 		echo_log "Run make localmodconfig anyways"
 	    fi
 	    if ! $DRYRUN; then
-		make localmodconfig
+		# we need to make sure that the necessary modules are loaded:
+		sensors &> /dev/null
+		yes "" | make localmodconfig
 	    fi
 	    RUN_LOCALMOD=false
 	else
@@ -1480,6 +1482,8 @@ function config_kernel {
 	    if test "x$(echo $CURRENT_KERNEL | cut -f 1,2 -d '.')" = "x$(echo $LINUX_KERNEL | cut -f 1,2 -d '.')" ; then
 		echo_log "Run make localmodconfig"
 		if ! $DRYRUN; then
+		    # we need to make sure that the necessary modules are loaded:
+		    sensors &> /dev/null
 		    yes "" | make localmodconfig
 		fi
 	    else
