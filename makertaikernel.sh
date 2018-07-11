@@ -483,7 +483,7 @@ Action can be also one of
   config     : write the configuration file \"${MAKE_RTAI_CONFIG}\" 
                that you can edit according to your needs
   init       : should be executed the first time you use ${MAKE_RTAI_KERNEL} -
-               equivalent to setup, download rtai, info rtai.
+               equivalent to install packages, setup, download rtai, info rtai.
   reconfigure: reconfigure the kernel and make a full build of all targets (without target)
   reboot     : reboot and set kernel parameter
                (run "${MAKE_RTAI_KERNEL} help reboot" for details)
@@ -498,8 +498,8 @@ Action can be also one of
 
 Common use cases:
 
-Start with setting up /var/log/messages, the grub boot menu, and
-downloading an rtai source (-r option or RTAI_DIR variable):
+Start with installing required packages, setting up /var/log/messages, the grub boot menu,
+and downloading an rtai source (-r option or RTAI_DIR variable):
 $ sudo ${MAKE_RTAI_KERNEL} init
 
 Select a Linux kernel and a RTAI patch from the displayed list and set
@@ -1130,11 +1130,11 @@ function install_packages {
 	    if test -n "$FAILEDPKGS"; then
 		echo_log "Failed to install optional packages!"
 		echo_log "Maybe package names have changed ..."
-		echo_log "Try to install them manually:"
+		echo_log "If possible, try to install them manually:"
 		for PKG in $FAILEDPKGS; do
 		    echo_log "  $PKG"
 		done
-		return 1
+		return 0
 	    fi
 	fi
     fi
@@ -4509,6 +4509,7 @@ function restore_features {
 
 function init_installation {
     check_root
+    install_packages ||	return 1
     setup_messages
     setup_grub
     setup_comedi
@@ -4522,9 +4523,7 @@ function full_install {
 
     SECONDS=0
 
-    if ! install_packages; then
-	return 1
-    fi
+    install_packages ||	return 1
 
     uninstall_kernel
     ${MAKE_NEWLIB} && uninstall_newlib
