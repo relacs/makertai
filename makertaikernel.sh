@@ -106,6 +106,13 @@ REALTIME_DIR="/usr/realtime"
 ###########################################################################
 # general functions:
 
+function set_variables {
+    test -n "$KERNEL_NUM" && test "x${KERNEL_NUM:0:1}" != "x-" && KERNEL_NUM="-$KERNEL_NUM"
+    KERNEL_NAME=${LINUX_KERNEL}-${RTAI_DIR}${KERNEL_NUM}
+    KERNEL_ALT_NAME=${LINUX_KERNEL}.0-${RTAI_DIR}${KERNEL_NUM}
+    REALTIME_DIR="/usr/realtime/${KERNEL_NAME}"
+}
+
 function echo_log {
     echo "$@" | tee -a "$LOG_FILE"
 }
@@ -2949,6 +2956,7 @@ function test_batch_script {
 
     # read configuration:
     source "${MAKE_RTAI_CONFIG}"
+    set_variables
 
     # enable logs:
     LOG_FILE="${WORKING_DIR}/${MAKE_RTAI_KERNEL%.*}.log"
@@ -4927,10 +4935,7 @@ if $RTAI_DIR_CHANGED && ! $RTAI_PATCH_CHANGED && ! $LINUX_KERNEL_CHANGED; then
     sleep 2
 fi
 
-test -n "$KERNEL_NUM" && test "x${KERNEL_NUM:0:1}" != "x-" && KERNEL_NUM="-$KERNEL_NUM"
-KERNEL_NAME=${LINUX_KERNEL}-${RTAI_DIR}${KERNEL_NUM}
-KERNEL_ALT_NAME=${LINUX_KERNEL}.0-${RTAI_DIR}${KERNEL_NUM}
-REALTIME_DIR="/usr/realtime/${KERNEL_NAME}"
+set_variables
 
 if test "x$1" != "xhelp" && test "x$1" != "xversion" && test "x$1" != "xinfo" && test "x$1" != "xreport" && test "x$1" != "xconfig" && ! ( test "x$1" = "xtest" && test "x$2" = "xbatchscript" ); then
     rm -f "$LOG_FILE"
