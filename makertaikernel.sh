@@ -1096,7 +1096,7 @@ function install_packages {
 	# XXX what if libgsl-dev is installed instead of libgsl0-dev ???
 	PACKAGES="$PACKAGES bison flex libgsl0-dev libboost-program-options-dev"
     fi
-    OPT_PACKAGES="kernel-package stress lm-sensors lshw openssh-server"
+    OPT_PACKAGES="kernel-package stress lm-sensors lshw openssh-server python python-numpy python-matplotlib python-tk"
     if $DRYRUN; then
 	echo_log "apt-get -y install $PACKAGES"
 	for PKG in $OPT_PACKAGES; do
