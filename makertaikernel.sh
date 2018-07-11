@@ -2110,17 +2110,18 @@ function test_kernel {
     LOADMODE=$(echo $LOADMODE)  # strip whitespace
 
     if test ${CURRENT_KERNEL} != ${KERNEL_NAME} && test ${CURRENT_KERNEL} != ${KERNEL_ALT_NAME}; then
-	echo "Need a running rtai kernel that matches the configuration of ${MAKE_RTAI_KERNEL}!"
-	echo
-	echo "Either boot into the ${KERNEL_NAME} kernel, e.g. by executing"
-	echo "$ ./${MAKE_RTAI_KERNEL} reboot"
-	echo "or supply the right parameter to ${MAKE_RTAI_KERNEL}."
-	echo
-	echo "Info:"
-	echo "  Your running kernel is: ${CURRENT_KERNEL}"
-	echo "  LINUX_KERNEL is set to ${LINUX_KERNEL}, set with -k"
-	echo "  RTAI_DIR is set to ${RTAI_DIR}, set with -r"
-	echo "  KERNEL_NUM is set to $KERNEL_NUM, set with -n"
+	echo_log "Need a running rtai kernel that matches the configuration of ${MAKE_RTAI_KERNEL}!"
+	echo_log
+	echo_log "Either boot into the ${KERNEL_NAME} kernel, e.g. by executing"
+	echo_log "$ ./${MAKE_RTAI_KERNEL} reboot"
+	echo_log "or supply the right parameter to ${MAKE_RTAI_KERNEL}."
+	echo_log
+	echo_log "Info:"
+	echo_log "  Your running kernel is: ${CURRENT_KERNEL}"
+	echo_log "  LINUX_KERNEL is set to ${LINUX_KERNEL}"
+	echo_log "  RTAI_DIR is set to ${RTAI_DIR}"
+	echo_log "  KERNEL_NUM is set to $KERNEL_NUM"
+	echo_log "Change these variables in your ${MAKE_RTAI_CONFIG} configuration file."
 	return 1
     fi
 
