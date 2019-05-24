@@ -169,7 +169,7 @@ info interrupts      : show the file /proc/interrupts
 info menu            : show kernel configuration menu of the specified (-c) kernel configuration
 info grub            : show grub boot menu entries
 info settings        : show the values of all configuration variables
-info setup           : show modifikations of your system made by ${MAKE_RTAI_KERNEL} (run as root)
+info setup           : show modifications of your system made by ${MAKE_RTAI_KERNEL} (run as root)
 info log             : show the content of the log file if available - useful after test batch
 info configs         : show available kernel configurations in all files config-*
 info configs <FILES> : show kernel configurations contained in <FILES>
@@ -4259,7 +4259,7 @@ function setup_grub {
 	echo_log "Configure grub menu."
 	if ! $DRYRUN; then
 	    cp grub grub.origmrk
-	    sed -e 's/GRUB_HIDDEN/#GRUB_HIDDEN/; s/GRUB_TIMEOUT=.*/GRUB_TIMEOUT=5/; /GRUB_CMDLINE_LINUX=/aexport GRUB_CMDLINE_RTAI=""' grub.origmrk > grub
+	    sed -e 's/GRUB_HIDDEN/#GRUB_HIDDEN/; s/GRUB_TIMEOUT_STYLE=/#GRUB_TIMEOUT_STYLE=/; s/GRUB_TIMEOUT=.*/GRUB_TIMEOUT=5/; /GRUB_CMDLINE_LINUX=/aexport GRUB_CMDLINE_RTAI=""' grub.origmrk > grub
 	    ( echo; echo "GRUB_DISABLE_SUBMENU=y"; echo; echo "GRUB_DISABLE_RECOVERY=true" ) >> grub
 	    RUN_UPDATE=true
 	fi

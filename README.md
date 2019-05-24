@@ -76,7 +76,7 @@ following instructions:
 
 ### Building the first kernel
 
-The you can go on by building the RTAI-patched kernel for the first time:
+Then you can go on by building the RTAI-patched kernel for the first time:
 
 1. Select a Linux kernel and the corresponding RTAI patch from the displayed list.
 
@@ -120,13 +120,36 @@ The you can go on by building the RTAI-patched kernel for the first time:
    Starting out with a kernel matching the one from the selected RTAI
    patch ensures that `makertaikernel.sh` will use this kernel's
    configuration and deselect all kernel modules that are not used
-   (localmodconfig). This dramatically shortens the compile time (5-15min).
+   (localmodconfig). This dramatically shortens the compile time (from
+   about one full hour down to 5-15min).
 
    If you use `makertaikernel.sh` with the `-l` switch or the
    version of the running kernel does not match the one of the
    selected kernel (major or minor version number differ),
    localmodconfig is not applied, resulting in a much larger kernel
    (takes much more time to compile - about one full hour or more).
+
+   If your distribtion does not supply a kernel with a matching
+   version, then you should first build a kernel without the rtai
+   patch by running
+   ```
+   sudo ./makertaikernel.sh buildplain
+   ```
+   Boot into this kernel
+   ```
+   sudo ./makertaikernel.sh reboot
+   ```
+   and run
+   ```
+   sudo ./makertaikernel.sh -n 2 buildplain
+   sudo ./makertaikernel.sh reboot
+   ```
+   again to get and boot into a running kernel with unnecessary
+   modules removed. Finally run
+   ```
+   sudo ./makertaikernel.sh clean kernel
+   ```
+   to make sure that the RTAi patches are aplied in the next step.
 
 3. Once you booted into the kernel on which you want to base your RTAI
    kernel run
@@ -144,7 +167,8 @@ The you can go on by building the RTAI-patched kernel for the first time:
 
 4. You will get the menu for configuring the kernel. You need to
    change a few settings to get a running RTAI-patched kernel. See the
-   next section [Basic kernel configuration][basickernelconfiguration] for instructions.
+   next section [Basic kernel configuration][basickernelconfiguration]
+   for instructions.
 
 5. Reboot into the new kernel by executing
    ```
@@ -190,7 +214,7 @@ Then the new kernel is being compiled - be patient.
 
 ### Getting a running RTAI-patched kernel
 
-In rare cases the RTAI-patched linux kernel fails already at boot-up.
+Sometimes the RTAI-patched linux kernel fails already at boot-up.
 
  * In case booting into the RTAI-patched kernel failed, reboot into
    your standard kernel (select it via the grub menu) and build
