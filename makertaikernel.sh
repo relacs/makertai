@@ -1163,14 +1163,14 @@ function check_kernel_patch {
 	LINUX_KERNEL_SET=${LINUX_KERNEL}
 	cd ${LOCAL_SRC_PATH}/${RTAI_DIR}/base/arch/$RTAI_MACHINE/patches/
 	echo_log
-	echo_log "Available patches for this machine ($RTAI_MACHINE), most latest last:"
+	echo_log "Available ${RTAI_DIR} patches for this machine ($RTAI_MACHINE), latest last:"
 	ls -rt -1 *.patch 2> /dev/null | tee -a "$LOG_FILE" | indent
 	echo_log
 	LINUX_KERNEL_V=${LINUX_KERNEL%.*}
-	echo_log "Available patches for the selected kernel's kernel version ($LINUX_KERNEL_V):"
+	echo_log "Available ${RTAI_DIR} patches for the selected kernel's kernel version ($LINUX_KERNEL_V):"
 	ls -rt -1 *-${LINUX_KERNEL_V}*.patch 2> /dev/null | tee -a "$LOG_FILE" | indent
 	echo_log
-	echo_log "Available patches for the selected kernel ($LINUX_KERNEL):"
+	echo_log "Available ${RTAI_DIR} patches for the selected kernel ($LINUX_KERNEL):"
 	ls -rt -1 *-${LINUX_KERNEL}*.patch 2> /dev/null | tee -a "$LOG_FILE" | indent
 	RTAI_PATCH="$(ls -rt *-${LINUX_KERNEL}-*.patch 2> /dev/null | tail -n 1)"
 	if test -z "$RTAI_PATCH"; then
@@ -1251,7 +1251,7 @@ function download_kernel {
 	fi
     else
 	echo_log
-	echo_log "Available patches for this machine ($RTAI_MACHINE):"
+	echo_log "Available ${RTAI_DIR} patches for this machine ($RTAI_MACHINE):"
 	ls -rt ${LOCAL_SRC_PATH}/${RTAI_DIR}/base/arch/$RTAI_MACHINE/patches/*.patch | while read LINE; do echo_log "  ${LINE#${LOCAL_SRC_PATH}/${RTAI_DIR}/base/arch/$RTAI_MACHINE/patches/}"; done
 	echo_log
 	echo_log "You need to specify a linux kernel version!"
