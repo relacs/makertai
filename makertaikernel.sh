@@ -1573,18 +1573,18 @@ function build_kernel {
 		echo_log
 		echo_log "Error: failed to build the kernel!"
 		echo_log "Scroll up to see why."
-		cd "WORKING_DIR"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
 	fi
 
-	cd "WORKING_DIR"
+	cd "$WORKING_DIR"
 
 	# install:
 	install_kernel || return 1
     else
 	echo_log "Keep already compiled linux ${KERNEL_NAME} kernel."
-	cd "WORKING_DIR"
+	cd "$WORKING_DIR"
     fi
 }
 
