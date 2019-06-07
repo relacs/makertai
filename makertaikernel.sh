@@ -2113,7 +2113,7 @@ function test_kernel {
 	shift
     done
     test -z "$TESTMODE" && TESTMODE="kern"
-    test $MAX_MODULE -lt 5 && TESTMODE="none"
+    test $MAXMODULE -lt 5 && TESTMODE="none"
     TESTMODE=$(echo $TESTMODE)  # strip whitespace
     LOADMODE=$(echo $LOADMODE)  # strip whitespace
 
