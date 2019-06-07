@@ -2075,7 +2075,7 @@ function test_kernel {
     CPULATENCY=false
     CPULATENCYALL=true
     CPUGOVERNOR=false
-    MAXMODULE="4"
+    MAXMODULE="5"
     CALIBRATE="false"
     DESCRIPTION=""
     TESTSPECS=""
@@ -2113,6 +2113,7 @@ function test_kernel {
 	shift
     done
     test -z "$TESTMODE" && TESTMODE="kern"
+    test $MAX_MODULE -lt 5 && TESTMODE="none"
     TESTMODE=$(echo $TESTMODE)  # strip whitespace
     LOADMODE=$(echo $LOADMODE)  # strip whitespace
 
