@@ -2185,8 +2185,9 @@ function test_kernel {
 
     # description of kernel configuration:
     if test -z "$DESCRIPTION"; then
-	read -p 'Please enter a short name describing the kernel configuration (empty: abort tests): ' NAME
+	read -p 'Please enter a short name describing the kernel configuration (empty: abort tests now, "n": do not save test results): ' NAME
 	test -z "$NAME" && return
+	test "$NAME" = "n" && DESCRIPTION="n"
     else
 	NAME="$DESCRIPTION"
     fi
@@ -2363,14 +2364,16 @@ function test_kernel {
 	echo_log
 	if test -z "$DESCRIPTION"; then
 	    read -p 'Save configuration? (y/N): ' SAVE
-	    if test "$SAVE" = "y"; then
-		echo_log
-		echo_log "saved kernel configuration in: config-$REPORT"
-		echo_log "saved test results in        : latencies-$REPORT"
-	    else
-		rm -f config-$REPORT
-		rm -f latencies-$REPORT
-	    fi
+	else
+	    SAVE="n"
+	fi
+	if test "$SAVE" = "y"; then
+	    echo_log
+	    echo_log "saved kernel configuration in: config-$REPORT"
+	    echo_log "saved test results in        : latencies-$REPORT"
+	else
+	    rm -f config-$REPORT
+	    rm -f latencies-$REPORT
 	fi
 	return
     fi
@@ -2521,6 +2524,8 @@ function test_kernel {
 	read -p "Please enter a short description of the test result (empty: $TEST_RESULT, n: don't save): " RESULT
 	test -z "$RESULT" && RESULT="$TEST_RESULT"
 	echo_log
+    elif test "$DESCRIPTION" = "n"; then
+	RESULT="n"
     else
 	RESULT="$TEST_RESULT"
     fi
