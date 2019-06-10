@@ -870,7 +870,10 @@ function print_cpus {
 
     if sensors --version &> /dev/null; then
 	echo "CPU core temperatures (sensors):"
-	sensors | grep Core | indent
+	if test "$(sensors | grep Core | wc -l)" -ge 1; then
+	    sensors | grep Core | indent
+	else
+	    sensors | grep temp | indent
 	echo
     fi
 
