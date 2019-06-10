@@ -874,6 +874,7 @@ function print_cpus {
 	    sensors | grep Core | indent
 	else
 	    sensors | grep temp | indent
+	fi
 	echo
     fi
 
