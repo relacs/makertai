@@ -878,6 +878,7 @@ function print_cpus {
 	echo
     else
 	echo "  sensors not available or appropriate kernel module missing - check sensors and sensors-detect manually."
+	echo
     fi
 
     MAXCPUFREQ="n.a."
