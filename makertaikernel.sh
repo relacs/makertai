@@ -114,7 +114,8 @@ function set_variables {
 }
 
 function echo_log {
-    echo "$@" | tee -a "$LOG_FILE"
+    echo "$(date +%T) $@" >> "$LOG_FILE"
+    echo "$@"
 }
 
 function echo_kmsg {
@@ -5023,7 +5024,7 @@ if test -f "$LOG_FILE"; then
     echo
     echo "Summary of log messages"
     echo "-----------------------"
-    cat "$LOG_FILE"
+    cut -c 10- "$LOG_FILE"
     rm "$LOG_FILE"
 fi
 
