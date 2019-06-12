@@ -2194,7 +2194,7 @@ function test_kernel {
     # description of kernel configuration:
     if test -z "$DESCRIPTION"; then
 	read -p 'Please enter a short name describing the kernel configuration (empty: abort tests now, "n": do not save test results): ' NAME
-	test -z "$NAME" && return
+	test -z "$NAME" && return 0
 	test "$NAME" = "n" && DESCRIPTION="n"
     else
 	NAME="$DESCRIPTION"
@@ -2383,7 +2383,7 @@ function test_kernel {
 	    rm -f config-$REPORT
 	    rm -f latencies-$REPORT
 	fi
-	return
+	return 1
     fi
     echo_log "successfully loaded and unloaded rtai modules"
     echo_log
@@ -3750,6 +3750,7 @@ function setup_rtai {
 	    cd - &> /dev/null
 	fi
     fi
+    return 0
 }
 
 function restore_rtai {
