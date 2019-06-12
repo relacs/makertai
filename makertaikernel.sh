@@ -2036,7 +2036,7 @@ function test_run {
 	# setup automatic test duration:
 	TTIME=$TEST_TIME
 	if test -n "$TEST_TIME" && test $TEST = switches; then
-	    TTIME=2
+	    TTIME=10
 	    test $DIR = user && TTIME=""
 	fi
 	if test -n "$TEST_TIME" && test $TEST = preempt && test $TEST_TIME -gt 10; then
