@@ -1677,7 +1677,7 @@ function setup_kernel_param {
 	    grub-editenv - set rtai_cmdline="$*"
 	fi
 	if test -n "$*"; then
-	    echo_log "Set RTAI kernel parameter to \"$*\"."
+	    echo_log "set RTAI kernel parameter to \"$*\"."
 	fi
     elif test -f /etc/default/grub; then
 	echo_log "/boot/grub/grubenv not found: try /etc/default/grub"
@@ -1690,7 +1690,7 @@ function setup_kernel_param {
 	    update-grub
 	fi
 	if test -n "$*"; then
-	    echo_log "Set RTAI kernel parameter to \"$*\"."
+	    echo_log "set RTAI kernel parameter to \"$*\"."
 	fi
     else
 	echo_log "/boot/grub/grubenv and /etc/default/grub not found: cannot set RTAI kernel parameter"
@@ -2891,6 +2891,7 @@ EOF
 
 	# set information for next test/compile:
 	if test -f /boot/grub/grubenv; then
+	    echo_log "Set grub environment variables."
 	    grub-editenv - set rtaitest_pwd="$PWD"
 	    grub-editenv - set rtaitest_file="$BATCH_FILE"
 	    grub-editenv - set rtaitest_index="$INDEX"
@@ -2954,6 +2955,7 @@ function test_batch_script {
 	BATCH_DESCR="$(grub-editenv - list | grep '^rtaitest_param_descr=' | cut -d '=' -f 2-)"
 	TEST_TOTAL_TIME="$(grub-editenv - list | grep '^rtaitest_time=' | cut -d '=' -f 2-)"
 	TEST_SPECS="$(grub-editenv - list | grep '^rtaitest_specs=' | cut -d '=' -f 2-)"
+	echo_log "Read grub environment variables. WORKING_DIR=$WORKING_DIR"
     else
 	MF=/var/log/messages
 	grep -q -a -F "NEXT TEST BATCH" $MF || MF=/var/log/messages.1
@@ -3106,6 +3108,7 @@ function restore_test_batch {
 	fi
     fi
     if test -f /boot/grub/grubenv; then
+	echo_log "clear grub environment variables"
 	grub-editenv - unset rtaitest_pwd
 	grub-editenv - unset rtaitest_file
 	grub-editenv - unset rtaitest_index
@@ -4362,12 +4365,14 @@ function restore_grub {
 	if ! $DRYRUN; then
 	    grub-editenv - unset rtai_cmdline
 	    grub-editenv - unset next_entry
+ 	    grub-editenv - unset rtaitest_pwd
 	    grub-editenv - unset rtaitest_file
 	    grub-editenv - unset rtaitest_index
 	    grub-editenv - unset rtaitest_kernel_descr
 	    grub-editenv - unset rtaitest_param_descr
 	    grub-editenv - unset rtaitest_time
 	    grub-editenv - unset rtaitest_specs
+	    grub-editenv - unset rtaitest_state
 	fi
 	echo_log "Disable reboot requests for normal user."
 	if ! $DRYRUN; then
