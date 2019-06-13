@@ -2068,11 +2068,11 @@ function test_kernel {
 
     # check for kernel log messages:
     if ! test -f /var/log/messages; then
+	echo_kmsg "EXIT TEST BECAUSE /var/log/messages DOES NOT EXIST"
 	echo_log "/var/log/messages does not exist!"
 	echo_log "enable it by running:"
 	echo_log "$ ./${MAKE_RTAI_KERNEL} setup messages"
 	echo_log
-	echo_kmsg "EXIT TEST BECAUSE /var/log/messages DOES NOT EXIST"
 	exit 1
     fi
 
@@ -2126,6 +2126,7 @@ function test_kernel {
     LOADMODE=$(echo $LOADMODE)  # strip whitespace
 
     if test ${CURRENT_KERNEL} != ${KERNEL_NAME} && test ${CURRENT_KERNEL} != ${KERNEL_ALT_NAME}; then
+	echo_kmsg "EXIT TEST BECAUSE OF RUNNING KERNEL DOES NOT MATCH CONFIGURATION"
 	echo_log "Need a running rtai kernel that matches the configuration of ${MAKE_RTAI_KERNEL}!"
 	echo_log
 	echo_log "Either boot into the ${KERNEL_NAME} kernel, e.g. by executing"
@@ -2138,7 +2139,6 @@ function test_kernel {
 	echo_log "  RTAI_DIR is set to ${RTAI_DIR}"
 	echo_log "  KERNEL_NUM is set to $KERNEL_NUM"
 	echo_log "Change these variables in your ${MAKE_RTAI_CONFIG} configuration file."
-	echo_kmsg "EXIT TEST BECAUSE OF RUNNING KERNEL DOES NOT MATCH CONFIGURATION"
 	return 1
     fi
 
@@ -2178,6 +2178,8 @@ function test_kernel {
 	N=$(expr $N + 1)
 	NUM="$(printf "%03d" $N)"
     fi
+
+    echo_kmsg "PREPARE TESTS NUM $NUM $DESCRIPTION"
 
     if $CALIBRATE; then
 	# remove latency file to force calibration:
