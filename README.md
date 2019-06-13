@@ -87,6 +87,9 @@ Then you can go on by building the RTAI-patched kernel for the first time:
    space there for a kernel with most device drivers disabled
    (e.g. via localmodconf) or 5-10GB for a full kernel).
 
+   Best is to choose a kernel that is available as a package for your
+   linux distribution (see next point).
+
    Recheck for available RTAI patches and linux kernels:
    ```
    sudo ./makertaikernel.sh info rtai
@@ -237,6 +240,9 @@ Sometimes the RTAI-patched linux kernel fails already at boot-up.
    in order to deselect all unused kernel modules from compilation.
    This speeds up the following kernel builds dramatically!
 
+ * Your compiler could be too new. Try an older distribution with
+   older versions of compiler, linker, etc.
+
  * Once you successfully booted into the RTAI-patched kernel (this is
    usually the case) then you can go on with testing and improving
    your RTAI kernel as described in sections 
@@ -260,9 +266,6 @@ If you only want to check loading `rtai_hal` then call
 sudo ./makertaikernel.sh test hal none
 ```
 Equivalently, you can use the `sched` and `math` option.
-
-### TODO
-no saving and naming of test results when doing this manually
 
 If this fails:
 - Make sure you have the `STACKPROTECTOR` set to "None" or "Regular" (see [Basic kernel configuration][basickernelconfiguration])
@@ -687,7 +690,15 @@ Check the test results with
 ```
 
 Choose the one kernel parameter with the best `mean jitter` and/or
-best max jitter (if there is one).
+best max jitter (if there is one). 
+
+When choosing the best kernel parameter, keep in mind that the
+reported jitters could vary by about the reported standard deviation
+if you run the tests again. So only jitters that are better by at
+least one standrad deviation in comparison to another one are really
+better. Check the differences of the "plain" test that is run twice by
+`testbasics.mrk`. Alternatively, run the tests much longer to get more
+precise results.
 
 Add this kernel parameter to the `KERNEL_PARAM` variable in the configuration file
 and comment it out in the `testbasics.mrk` file.
