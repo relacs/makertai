@@ -1756,7 +1756,7 @@ function reboot_cmd {
     echo_log "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
     if ! $DRYRUN; then
 	if test "x$1" = "xcold"; then
-	    echo_kmsg "REBOOT (reboot -f)"
+	    echo_kmsg "REBOOT COLD (reboot -f)"
 	    reboot -f
 	elif test "x$(id -u)" != "x0"; then
 	    if qdbus --version &> /dev/null; then
@@ -2063,8 +2063,8 @@ function test_run {
 function test_kernel {
     check_root
 
-    echo_log "Test kernel ..."
     chown --reference=. "$LOG_FILE"
+    echo_log "Test kernel ..."
 
     # check for kernel log messages:
     if ! test -f /var/log/messages; then
@@ -2072,6 +2072,7 @@ function test_kernel {
 	echo_log "enable it by running:"
 	echo_log "$ ./${MAKE_RTAI_KERNEL} setup messages"
 	echo_log
+	echo_kmsg "EXIT TEST BECAUSE /var/log/messages DOES NOT EXIST"
 	exit 1
     fi
 
@@ -2137,6 +2138,7 @@ function test_kernel {
 	echo_log "  RTAI_DIR is set to ${RTAI_DIR}"
 	echo_log "  KERNEL_NUM is set to $KERNEL_NUM"
 	echo_log "Change these variables in your ${MAKE_RTAI_CONFIG} configuration file."
+	echo_kmsg "EXIT TEST BECAUSE OF RUNNING KERNEL DOES NOT MATCH CONFIGURATION"
 	return 1
     fi
 
@@ -2212,7 +2214,10 @@ function test_kernel {
     if test -n "$CPUIDS"; then
 	CPU_ID=${CPUIDS%%,*}
 	NAME="${NAME}-cpu${CPU_ID}"
-	setup_rtai "$CPUIDS" || return 1
+	if ! setup_rtai "$CPUIDS"; then
+	    echo_kmsg "SETUP_RTAI FAILED BECAUSE NO VALID CPU IDS WERE SPECIFIED"
+	    return 1
+	fi
     fi
 
     echo_log
@@ -2955,7 +2960,6 @@ function test_batch_script {
 	BATCH_DESCR="$(grub-editenv - list | grep '^rtaitest_param_descr=' | cut -d '=' -f 2-)"
 	TEST_TOTAL_TIME="$(grub-editenv - list | grep '^rtaitest_time=' | cut -d '=' -f 2-)"
 	TEST_SPECS="$(grub-editenv - list | grep '^rtaitest_specs=' | cut -d '=' -f 2-)"
-	echo_log "Read grub environment variables. WORKING_DIR=$WORKING_DIR"
     else
 	MF=/var/log/messages
 	grep -q -a -F "NEXT TEST BATCH" $MF || MF=/var/log/messages.1
@@ -2966,6 +2970,7 @@ function test_batch_script {
 
     # working directory:
     cd "$WORKING_DIR"
+    echo_kmsg "WORKING DIRECTORY IS $WORKING_DIR"
 
     N_TESTS=$(sed -e 's/ *#.*$//' $BATCH_FILE | grep -c ':.*:')
 
@@ -2976,9 +2981,10 @@ function test_batch_script {
     # enable logs:
     LOG_FILE="${WORKING_DIR}/${MAKE_RTAI_KERNEL%.*}.log"
     echo_log
-    echo_log "Automatically start test $INDEX of $N_TESTS in file \"$BATCH_FILE\"."
+    echo_log "Automatically start test $INDEX of $N_TESTS in file \"$BATCH_FILE\" in directory \"$WORKING_DIR\"."
     echo_log
     chown --reference=. "$LOG_FILE"
+    echo_kmsg "TEST $INDEX OF $N_TESTS IN FILE \"$BATCH_FILE\"."
 
     # read current DESCRIPTION and LOAD_MODE from configuration file:
     IFS=':' read DESCRIPTION LOAD_MODE NEW_KERNEL_PARAM < <(sed -e 's/ *#.*$//' $BATCH_FILE | grep ':.*:' | sed -n -e ${INDEX}p)
@@ -2992,7 +2998,9 @@ function test_batch_script {
 	KERNEL_DESCR="$DESCRIPTION"
     else
 	# wait:
+	echo_kmsg "WAIT FOR $STARTUP_TIME SECONDS"
 	sleep $STARTUP_TIME
+	echo_kmsg "FINISHED WAITING"
     fi
 
     # next:
@@ -3029,6 +3037,7 @@ function test_batch_script {
 
     # working directory:
     cd "$WORKING_DIR"
+    echo_kmsg "WORKING DIRECTORY STILL IS $WORKING_DIR"
 
     if $COMPILE; then
 	if test -f /boot/grub/grubenv; then
@@ -3065,6 +3074,7 @@ function test_batch_script {
 	{ sleep $(( $TEST_TOTAL_TIME + 240 )); reboot_cmd cold; } &
 	# at TEST_TOTAL_TIME seconds later reboot:
 	{ sleep $(( $TEST_TOTAL_TIME + 120)); reboot_cmd; } &
+	echo_kmsg "REBOOT AFTER $(( $TEST_TOTAL_TIME + 120)) SECONDS"
 
 	if test -f /boot/grub/grubenv; then
 	    grub-editenv - set rtaitest_state="test"
@@ -3093,6 +3103,7 @@ function test_batch_script {
     if test -f /boot/grub/grubenv; then
 	grub-editenv - set rtaitest_state="reboot"
     fi
+    echo_kmsg "REBOOT BECAUSE TEST HAS BEEN COMPLETED"
     reboot_cmd
     sleep 60
     reboot_cmd cold
