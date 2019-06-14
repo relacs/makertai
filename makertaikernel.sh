@@ -2063,8 +2063,8 @@ function test_run {
 function test_kernel {
     check_root
 
-    chown --reference=. "$LOG_FILE"
     echo_log "Test kernel ..."
+    chown --reference=. "$LOG_FILE"
 
     # check for kernel log messages:
     if ! test -f /var/log/messages; then

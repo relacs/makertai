@@ -1066,8 +1066,9 @@ logical  socket  core  online  freq/MHz      governor
   cpu6        0     2       1     1.200      ondemand
   cpu7        0     3       1     1.400      ondemand
 ```
-If in the "core_id" column the numbers appear twice or more
-often, then you run in hyperthreading mode (as is the case in the example).
+If in the "core" column the numbers appear twice or more
+often (like in the example shown),
+then you run in hyperthreading mode (as is the case in the example).
 
 By reducing the number of CPUs to four, you can eliminate
 hyperthreading (see below).
@@ -1112,12 +1113,12 @@ You can also do this via the kernel parameter:
   put more cpu back to online.  Just like you compile the kernel
   NR_CPUS=n.
 
-Switch off individual CPUs:
+Alternatively, you could switch off individual CPUs:
 ```
 echo 0 > /sys/devices/system/cpu/cpuX/online
 ```
-This, however, crashes when inserting rtai_hal (even if
-CONFIG_RTAI_CPUS is adapted to the lower CPU count).
+When I tried this, however, the computer crashed when inserting
+rtai_hal (even if CONFIG_RTAI_CPUS is adapted to the lower CPU count).
 
 For more information see:
 - https://serverfault.com/questions/235825/disable-hyperthreading-from-within-linux-no-access-to-bios?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
@@ -1127,7 +1128,7 @@ The related kernel configs in the "Processor type and features" submenu
 - "SMT (Hyperthreading) scheduler support"
 - "Multi-core scheduler support"
 
-do not seem to matter.
+do not influence RTAI performance.
 
 
 ### Cached memory disruption 
