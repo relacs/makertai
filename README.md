@@ -195,11 +195,19 @@ This list is updated for RTAI 5.1. For other RTAI versions read
   - Important: set "Stack Protector buffer overflow detection" (at the bottom of the menu) to
     "Regular" (`CC_STACKPROTECTOR_REGULAR`)  - 
     or even "None" (`CC_STACKPROTECTOR_NONE`) if the latency test crashes.
+
+- "Procesor type an features":
+  - Maximum number of CPUs (`NR_CPUS`), optional, if you want to disable hyperthreading
+    and to reduce the output of RTAI tests in the kernel messages.
+  - Disable "Multi-core scheduler support" (`SCHED_MC`) 
+    (in order to be able to disable CPU frequency scaling, for kernel >= 4.14)
+  - Enable "Interrupt pipeline" (`IPIPE`)
   
 - "Power management and ACPI options":
   - In "ACPI (Advanced Configuration and Power Interface) Support":
     - Disable "Processor" (`ACPI_PROCESSOR`)
-  - Disable "CPU Frequency scaling" (`CPU_FREQ`)
+  - Disable "CPU Frequency scaling" (`CPU_FREQ`) (sometimes you need to disbale this first
+    in order to be able to disable `ACPI_PROCESSOR`)
   - In "CPU Idle":
     - Disable "CPU idle PM support" (`CPU_IDLE`)
 
