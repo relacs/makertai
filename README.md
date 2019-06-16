@@ -97,7 +97,13 @@ Then you can go on by building the RTAI-patched kernel for the first time:
 
 2. You should start out with a kernel
    configuration of a kernel image from your linux distribution
-   closest to the kernel version you selected. On a Debian-based
+   closest to the kernel version you selected (same major.minor kernel version).
+   First, the provided kernel configuration was tested and works, and second,
+   we can then deselect all unused kernel modules, which speeds up compile time
+   considerably (from one hour down to 10 minutes). It definitely pays off to invest 
+   some time in the beginning to start out with a matching working kernel.
+
+   On a Debian-based
    system install a matching kernel by executing
    ```
    sudo apt-get install linux-image-4.4.0-79
@@ -130,25 +136,20 @@ Then you can go on by building the RTAI-patched kernel for the first time:
    version of the running kernel does not match the one of the
    selected kernel (major or minor version number differ),
    localmodconfig is not applied, resulting in a much larger kernel
-   (takes much more time to compile - about one full hour or more).
+   (takes much more time to compile).
 
    If your distribtion does not supply a kernel with a matching
    version, then you should first build a kernel without the rtai
    patch by running
    ```
-   sudo ./makertaikernel.sh buildplain
+   sudo ./makertaikernel.sh download kernel
+   sudo ./makertaikernel.sh -n plain buildplain
    ```
    Boot into this kernel
    ```
-   sudo ./makertaikernel.sh reboot
+   sudo ./makertaikernel.sh -n plain reboot
    ```
-   and run
-   ```
-   sudo ./makertaikernel.sh -n 2 buildplain
-   sudo ./makertaikernel.sh reboot
-   ```
-   again to get and boot into a running kernel with unnecessary
-   modules removed. Finally run
+   Finally run
    ```
    sudo ./makertaikernel.sh clean kernel
    ```
@@ -177,6 +178,10 @@ Then you can go on by building the RTAI-patched kernel for the first time:
    ```
    ./makertaikernel.sh reboot
    ```
+
+6. Go on with checking, testing, and improving your RTAI kernel as described 
+   in the following sections.
+
 
 ### Basic kernel configuration
 For making the Linux kernel work with RTAI you should check the following settings 
