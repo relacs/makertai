@@ -1103,12 +1103,11 @@ function install_packages {
 	echo_log "Exit"
 	return 1
     fi
-    PACKAGES="make gcc libncurses-dev zlib1g-dev g++ bc cvs git autoconf automake libtool"
+    PACKAGES="make gcc libncurses-dev zlib1g-dev g++ libelf-dev bc cvs git autoconf automake libtool"
     if test ${LINUX_KERNEL:0:1} -gt 3; then
 	PACKAGES="$PACKAGES libssl-dev libpci-dev libsensors4-dev"
     fi
     if $MAKE_COMEDI; then
-	# XXX what if libgsl-dev is installed instead of libgsl0-dev ???
 	PACKAGES="$PACKAGES bison flex libgsl0-dev libboost-program-options-dev"
     fi
     OPT_PACKAGES="kernel-package stress lm-sensors lshw openssh-server python python-numpy python-matplotlib python-tk"
