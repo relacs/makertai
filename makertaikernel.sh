@@ -1167,22 +1167,35 @@ function check_kernel_patch {
 	    echo_log "$ ./${MAKE_RTAI_KERNEL} download rtai"
 	    return 10
 	fi
+	# remember set kernel and patch:
 	RTAI_PATCH_SET="$1"
 	LINUX_KERNEL_SET=${LINUX_KERNEL}
+	# list all available patches:
 	cd ${LOCAL_SRC_PATH}/${RTAI_DIR}/base/arch/$RTAI_MACHINE/patches/
 	echo_log
-	echo_log "Available ${RTAI_DIR} patches for this machine ($RTAI_MACHINE), latest last:"
-	ls -rt -1 *.patch 2> /dev/null | tee -a "$LOG_FILE" | indent
+	echo_log "Available ${RTAI_DIR} patches for this machine ($RTAI_MACHINE):"
+	ls -1 *.patch 2> /dev/null | sort -V | tee -a "$LOG_FILE" | indent
 	echo_log
+	# list patches for selected kernel version:
 	LINUX_KERNEL_V=${LINUX_KERNEL%.*}
-	echo_log "Available ${RTAI_DIR} patches for the selected kernel's kernel version ($LINUX_KERNEL_V):"
+	echo_log "Available ${RTAI_DIR} patches for selected kernel's kernel version ($LINUX_KERNEL_V), latest last:"
 	ls -rt -1 *-${LINUX_KERNEL_V}*.patch 2> /dev/null | tee -a "$LOG_FILE" | indent
 	echo_log
-	echo_log "Available ${RTAI_DIR} patches for the selected kernel ($LINUX_KERNEL):"
+	# list patches for selected kernel:
+	echo_log "Available ${RTAI_DIR} patches for selected kernel ($LINUX_KERNEL), latest last:"
 	ls -rt -1 *-${LINUX_KERNEL}*.patch 2> /dev/null | tee -a "$LOG_FILE" | indent
+	echo_log
+	# currently running kernel:
+	echo_log "Currently running kernel:"
+	echo_log "  $(uname -r)"
+	echo_log
+	# suggest a patch:
 	RTAI_PATCH="$(ls -rt *-${LINUX_KERNEL}-*.patch 2> /dev/null | tail -n 1)"
 	if test -z "$RTAI_PATCH"; then
-	    RTAI_PATCH="$(ls -rt *.patch 2> /dev/null | tail -n 1)"
+	    RTAI_PATCH="$(ls -rt *-${LINUX_KERNEL_V}*.patch 2> /dev/null | tail -n 1)"
+	    if test -z "$RTAI_PATCH"; then
+		RTAI_PATCH="$(ls -rt *.patch 2> /dev/null | tail -n 1)"
+	    fi
 	fi
 	if ! expr match $RTAI_PATCH ".*$LINUX_KERNEL" > /dev/null; then
 	    if test "x${RTAI_PATCH:0:10}" = "xhal-linux-"; then
@@ -1193,10 +1206,6 @@ function check_kernel_patch {
 	    fi
 	fi
 	cd - &> /dev/null
-	echo_log
-	echo_log "Currently running kernel:"
-	echo_log "  $(uname -r)"
-	echo_log
 	echo_log "Choose a patch and set the RTAI_PATCH variable at the top of the script"
 	echo_log "and the LINUX_KERNEL variable with the corresponding kernel version."
 	echo_log
