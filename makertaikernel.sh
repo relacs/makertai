@@ -41,7 +41,7 @@
 : ${KERNEL_PARAM:="idle=poll"}      # kernel parameter to be passed to grub
 : ${KERNEL_PARAM_DESCR:="poll"}     # one-word description of KERNEL_PARAM 
                                     # used for naming test resutls
-: ${BATCH_KERNEL_PARAM:="oops=panic nmi_watchdog=panic panic_on_warn softlockup_panic=1 unknown_nmi_panic panic=-1"} # additional kernel parameter passed to grub for test batch - we want to reboot in any case!
+: ${BATCH_KERNEL_PARAM:="oops=panic nmi_watchdog=panic softlockup_panic=1 unknown_nmi_panic panic=-1"} # additional kernel parameter passed to grub for test batch - we want to reboot in any case!
 : ${KERNEL_CONFIG_BACKUP:="config-backup"}     # stores initial kernel configuration for test batches
 
 : ${NEWLIB_TAR:=newlib-3.0.0.20180226.tar.gz}  # tar file of current newlib version 
