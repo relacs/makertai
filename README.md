@@ -197,7 +197,9 @@ This list is updated for RTAI 5.1. For other RTAI versions read
     or even "None" (`CC_STACKPROTECTOR_NONE`) if the latency test crashes.
 
 - "Procesor type an features":
-  - Maximum number of CPUs (`NR_CPUS`), optional, if you want to disable hyperthreading
+  - Disable "Support x2apic" if present (`X86_X2APIC`) 
+  - Maximum number of CPUs (`NR_CPUS`), optional,
+    if you want to disable [hyperthreading][hyperthreading]
     and to reduce the output of RTAI tests in the kernel messages.
   - Disable "Multi-core scheduler support" (`SCHED_MC`) 
     (in order to be able to disable CPU frequency scaling, for kernel >= 4.14)
@@ -1335,3 +1337,4 @@ Finally, there are the evil SMIs. They might periodically produce some long late
 [testreport]: #test-reports
 [testbatches]: #test-batches
 [configurekernel]: #improve-the-rtai-patched-kernel
+[hyoerthreading]: #hyperthreading
