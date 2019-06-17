@@ -241,7 +241,7 @@ Sometimes the RTAI-patched linux kernel fails already at boot-up.
    This uses the kernel configuration of your running kernel.  First
    do not change it, then if this kernel runs, modify the the kernel
    configuration step-by-step as described in the previous section
-   [Basic kernel configuration][basickernelconfigu ration] to figure
+   [Basic kernel configuration][basickernelconfiguration] to figure
    out the culprit.
    
  * If you did not start out with a kernel version matching the version
