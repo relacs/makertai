@@ -1337,4 +1337,4 @@ Finally, there are the evil SMIs. They might periodically produce some long late
 [testreport]: #test-reports
 [testbatches]: #test-batches
 [configurekernel]: #improve-the-rtai-patched-kernel
-[hyoerthreading]: #hyperthreading
+[hyperthreading]: #hyperthreading
