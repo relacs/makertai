@@ -1776,6 +1776,10 @@ function reboot_cmd {
 	    check_root
 	    shutdown -r now
 	else
+	    if test -r /boot/grub/grubenv; then
+		echo_kmsg "GRUB ENVIRONMENT:"
+		grub-editenv - list | while read LINE; do echo_kmsg "$LINE"; done
+	    fi
 	    echo_kmsg "REBOOT (shutdown -r now)"
 	    shutdown -r now
 	fi
@@ -3113,7 +3117,11 @@ function test_batch_script {
     if test -f /boot/grub/grubenv; then
 	grub-editenv - set rtaitest_state="reboot"
     fi
-    echo_kmsg "REBOOT BECAUSE TEST HAS BEEN COMPLETED"
+    if $COMPILE; then
+	echo_kmsg "REBOOT AFTER KERNEL COMPILATION"
+    else
+	echo_kmsg "REBOOT BECAUSE TEST HAS BEEN COMPLETED"
+    fi
     reboot_cmd
     sleep 60
     reboot_cmd cold
