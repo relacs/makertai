@@ -166,13 +166,13 @@ info rtai            : list all available patches and suggest the one fitting to
 info kernel          : show name and kernel parameter of the currently running kernel
 info cpu             : show properties of your CPUs.
                        Information about C-states is not always available - better check the i7z programm.
-info interrupts      : show the file /proc/interrupts
+info interrupts      : show /proc/interrupts
 info menu            : show kernel configuration menu of the specified (-c) kernel configuration
 info grub            : show grub boot menu entries
-info settings        : show the values of all configuration variables
+info settings        : show all configuration variables and their values
 info setup           : show modifications of your system made by ${MAKE_RTAI_KERNEL} (run as root)
-info log             : show the content of the log file if available - useful after test batch
-info configs         : show available kernel configurations in all files config-*
+info log             : show content of log file - useful after test batch
+info configs         : show available kernel configurations in all config-* files
 info configs <FILES> : show kernel configurations contained in <FILES>
 info configs > <FILE>: save kernel configurations contained in <FILES>
                        to file <FILE> usable as a test batch file.
@@ -630,7 +630,7 @@ function print_kernel_configs {
     test -z "$1" && KCF="config-*"
     if [ -t 1 ]; then
 	echo "Available kernel configurations - add them to a test batch file."
-	echo "The asterisk marks configurations that are identical with the current one."
+	echo "Configurations identical with the current one are marked by an asterisk."
 	echo
 	for FILE in "$@" $KCF; do
 	    SAME="  "
