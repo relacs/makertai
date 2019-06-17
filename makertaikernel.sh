@@ -4629,7 +4629,7 @@ function reconfigure {
 
     echo_log
     echo_log "Done!"
-    echo_log "Build took ${SECS} seconds ($(printf "%02d:%02d" $MIN $SEC))."
+    echo_log "Build took ${SECS} seconds ($(printf "%02d:%02d" $MIN $SEC), COMPILE_TIME=${COMPILE_TIME} seconds)."
     echo_log "Please reboot into the ${KERNEL_NAME} kernel by executing"
     echo_log "$ ./${MAKE_RTAI_KERNEL} reboot"
     echo_log
