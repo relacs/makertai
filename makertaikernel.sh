@@ -3115,6 +3115,13 @@ function test_batch_script {
     # reboot:
     sleep 1
     if test -f /boot/grub/grubenv; then
+	grub-editenv - set rtaitest_pwd="$PWD"
+	grub-editenv - set rtaitest_file="$BATCH_FILE"
+	grub-editenv - set rtaitest_index="$INDEX"
+	grub-editenv - set rtaitest_kernel_descr="$KERNEL_DESCR"
+	grub-editenv - set rtaitest_param_descr="$KERNEL_PARAM_DESCR"
+	grub-editenv - set rtaitest_time="$TEST_TOTAL_TIME"
+	grub-editenv - set rtaitest_specs="$TEST_SPECS"
 	grub-editenv - set rtaitest_state="reboot"
     fi
     if $COMPILE; then
