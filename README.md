@@ -740,7 +740,7 @@ See the file `/usr/local/src/rtai/README.ISOLCPUS` for more details.
 
 You should check each of your CPUs. In particular running and
 isolating an RTAI task on the first CPU may result in worse
-perfromance than on the other CPUs.
+performance than on the other CPUs.
 
 In addition to isolating a CPU you also need to make sure that the
 RTAI tests are run on that CPU. For this you need to modify the test

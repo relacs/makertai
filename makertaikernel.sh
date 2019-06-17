@@ -70,7 +70,7 @@ MAKE_RTAI_KERNEL="${0##*/}"
 MAKE_RTAI_CONFIG="${MAKE_RTAI_KERNEL%.*}.cfg"
 LOG_FILE="${PWD}/${MAKE_RTAI_KERNEL%.*}.log"
 
-VERSION_STRING="${MAKE_RTAI_KERNEL} version 4.0 by Jan Benda, June 2018"
+VERSION_STRING="${MAKE_RTAI_KERNEL} version 4.2 by Jan Benda, June 2019"
 DRYRUN=false                 # only show what is being done (set with -d)
 RECONFIGURE_KERNEL=false
 NEW_KERNEL_CONFIG=false
