@@ -762,6 +762,10 @@ Edit the file to adapt it to the number of CPUs you have on your machine.
 
 **Note:** You cannot isolate the CPU on which the system boots (usually cpu 0).
 
+**Note:** If inserting rtai_hal crashes when using the isolcpus kernel
+parameter, disable CONFIG_X86_X2APIC
+(in "Procesor type an features" - "Support x2apic") and compile the kernel again.
+
 Once you figured out which core is best go on with the test batch you get via
 ```
 ./makertaikernel.sh test batch nohzrcu
