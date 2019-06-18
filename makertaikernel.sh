@@ -1373,7 +1373,7 @@ function prepare_kernel_configs {
     let STEP+=1
     echo "Step $STEP: decide on a configuration mode."
     echo "        - Incremental configurations go on with the changed configurations."
-    echo "        - Absolute configurations always start put from the backed up original kernel configuration."
+    echo "        - Absolute configurations always start out from the backed up original kernel configuration."
     read -p "        Incremental or Absolute configurations, or Cancel? (i/A/c) " MODE
     ABSOLUTE=false
     case $MODE in
