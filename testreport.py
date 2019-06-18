@@ -763,7 +763,7 @@ def main():
     # command line arguments:
     parser = argparse.ArgumentParser(
         description='Analyse RTAI test results.',
-        epilog='by Jan Benda (2018)')
+        epilog='by Jan Benda (2018-2019)')
     parser.add_argument('--version', action='version', version="1.0")
     parser.add_argument('-i', default=init, type=int, metavar='LINES', dest='init',
                         help='number of initial lines to be skipped (defaults to %(default)s)')
@@ -845,6 +845,9 @@ def main():
         dt.add_column('jitfast', 'ns', '%3.0f')
         dt.add_column('jitslow', 'ns', '%3.0f')
         dt.add_column('n', '1', '%d')
+    dt.add_section('tests')
+    dt.add_column('test details', '', '%-s')
+    dt.add_column('link', '', '%-s')
 
     # list files:
     files = []
@@ -1016,6 +1019,8 @@ def main():
                                  testmode+' preempt>jitslow')
                     dt.add_value(len(data[testmode, 'preempt', 'jitterslow']),
                                  testmode+' preempt>n')
+            dt.add_value(os.path.basename(filename), 'tests>test details')
+            dt.add_value('[test details](%s)' % os.path.basename(filename), 'tests>links')
             dt.fill_data()
 
     # write table keys for makertaikernel.cfg file:

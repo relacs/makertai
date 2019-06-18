@@ -61,6 +61,13 @@
 
 : ${SHOWROOM_DIR:=showroom}   # target directory for rtai-showrom in ${LOCAL_SRC_PATH}
 
+# columns to be hidden in the test results table:
+HIDE_COLUMNS=(
+tests:test_details
+tests:link
+)
+
+
 ###########################################################################
 # some global variables:
 
@@ -1054,6 +1061,8 @@ HIDE_COLUMNS=(
 #kern_preempt:jitfast
 #kern_preempt:jitslow
 #kern_preempt:n
+tests:test_details
+tests:link
 )
 EOF
 }
