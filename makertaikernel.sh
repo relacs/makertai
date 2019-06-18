@@ -3379,6 +3379,7 @@ function update_newlib {
 }
 
 function build_newlib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}/newlib/install
     LIBM_PATH=$(find ${LOCAL_SRC_PATH}/newlib/install/ -name 'libm.a' | head -n 1)
     if test -f "$LIBM_PATH"; then
@@ -3397,12 +3398,12 @@ function build_newlib {
 		cd - > /dev/null
 		return 1
 	    fi
-	    cd - > /dev/null
+	    cd "$WORKING_DIR"
 	    install_newlib || return 1
 	fi
 	NEW_NEWLIB=true
     fi
-    cd - > /dev/null
+    cd "$WORKING_DIR"
 }
 
 function clean_newlib {
@@ -3420,8 +3421,7 @@ function clean_newlib {
 }
 
 function install_newlib {
-    cd ${LOCAL_SRC_PATH}/newlib
-    cd install
+    cd ${LOCAL_SRC_PATH}/newlib/install
     echo_log "install newlib"
     if ! $DRYRUN; then
 	make install
@@ -3743,12 +3743,14 @@ EOF
 	    fi
 	    cd - > /dev/null
 	    install_rtai || return 1
+	else
+	    cd - > /dev/null
 	fi
 	NEW_RTAI=true
     else
 	echo_log "keep already built and installed rtai modules"
+	cd - > /dev/null
     fi
-    cd - > /dev/null
 }
 
 function clean_rtai { 
@@ -4157,6 +4159,7 @@ function build_comedilib {
 	cd "$WORKING_DIR"
 	download_comedilib
     fi
+    cd ${LOCAL_SRC_PATH}
     if ! test -f comedilib/testing/comedi_test; then
 	cd comedilib
 	echo_log "Build comedilib ..."
