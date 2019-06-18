@@ -333,12 +333,13 @@ For a completely automized series of tests of various kernel parameters and kern
 under different loads you may add as the last arguments:
   batch FILE     : automatically run tests with various kernel parameter and configurations as specified in FILE
   batch basics   : write a default batch file with basic kernel parameters to be tested
+  batch isolcpus : write a default batch file with load settings and isolcpus kernel parameters to be tested
+  batch nohzrcu  : write a default batch file with more isolcpus kernel parameters to be tested
+  batch dma      : write a default batch file with io load, dma, and isolcpus kernel parameters to be tested
+  batch poll     : write a default batch file for testing run-time alternatives to idle=poll
   batch cstates  : write a default batch file with c-states related kernel parameters to be tested
   batch acpi     : write a default batch file with acpi related kernel parameters to be tested
   batch apic     : write a default batch file with apic related kernel parameters to be tested
-  batch isolcpus : write a default batch file with load settings and isolcpus kernel parameters to be tested
-  batch dma      : write a default batch file with io load, dma, and isolcpus kernel parameters to be tested
-  batch poll     : write a default batch file for testing run-time alternatives to idle=poll
 This successively reboots into the RTAI kernel with the kernel parameter 
 set to the ones specified by the KERNEL_PARAM variable and as specified in FILE,
 and runs the tests as specified by the previous commands (without the "auto" command).

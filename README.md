@@ -664,7 +664,7 @@ Finally the preempt test is run.
 
 Usually, the RTAI performance can be easily improved via a few kernel
 parameter. The following sections guide you through a mostly
-autamatized procedure that assists you in finding the best setting.
+automatized procedure that assists you in finding the best setting.
 
 
 ### Disable CPU power saving modes
@@ -1002,7 +1002,7 @@ hot.
 Kernel parameter `intel_pstate=disable` disables intel_pstate as the default scaling driver.
 intel_pstate bypasses the cpufreq frequency governors (CONFIG_X86_INTEL_PSTATE).
 
-performance governor sets CPU frequency to the highes available one.
+`performance` governor sets CPU frequency to the highest available one.
 
 
 #### Further aspects of power saving options
