@@ -371,7 +371,13 @@ will run the kern tests on the third CPU.
 
 ### Requesting zero CPU latency
 
-To be done
+To be done ...
+
+With rtai-5.2 on an Intel i7:
+- With ACPI_PROCESSOR, CPU_FREQ, and CPU_IDLE enabled, you still get the
+  same great results if `idle=poll` kernel parameter is used.
+- Without X86_INTEL_PSTATE just writing a zero to `/dev/cpu_dma_latency`
+  can replace `idle=poll`.
 
 
 ### Automatized testing
