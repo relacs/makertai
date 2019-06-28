@@ -3128,7 +3128,7 @@ function test_batch_script {
 	grub-editenv - set rtaitest_pwd="$PWD"
 	grub-editenv - set rtaitest_file="$BATCH_FILE"
 	grub-editenv - set rtaitest_index="$INDEX"
-	grub-editenv - set rtaitest_kernel_descr="$KERNEL_DESCR"
+	grub-editenv - set rtaitest_kernel_descr="${KERNEL_DESCR%%-}"
 	grub-editenv - set rtaitest_param_descr="$KERNEL_PARAM_DESCR"
 	grub-editenv - set rtaitest_time="$TEST_TOTAL_TIME"
 	grub-editenv - set rtaitest_specs="$TEST_SPECS"
@@ -3343,34 +3343,43 @@ function download_newlib {
 		mkdir install
 	    else
 		echo_log "Failed to download newlib!"
+		cd - > /dev/null
 		return 1
 	    fi
 	fi
     fi
+    cd - > /dev/null
 }
 
 function update_newlib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d newlib/src/.git; then
 	echo_log "Update already downloaded newlib sources from git repository."
 	cd newlib/src
 	if git pull origin master; then
 	    date +"%F %H:%M" > revision.txt
+	    cd "$WORKING_DIR"
 	    clean_newlib
 	else
 	    echo_log "Failed to update newlib from git repository!"
+	    cd "$WORKING_DIR"
 	    return 1
 	fi
     elif ! test -f newlib/$NEWLIB_TAR; then
 	echo_log "Remove entire newlib source tree."
 	rm -r newlib
+	cd "$WORKING_DIR"
 	download_newlib || return 1
     else
+	cd - > /dev/null
 	echo_log "Keep newlib source tree as is."
     fi
+    cd "$WORKING_DIR"
 }
 
 function build_newlib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}/newlib/install
     LIBM_PATH=$(find ${LOCAL_SRC_PATH}/newlib/install/ -name 'libm.a' | head -n 1)
     if test -f "$LIBM_PATH"; then
@@ -3386,15 +3395,19 @@ function build_newlib {
 	    make -j $CPU_NUM
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to build newlib!"
+		cd - > /dev/null
 		return 1
 	    fi
+	    cd "$WORKING_DIR"
 	    install_newlib || return 1
 	fi
 	NEW_NEWLIB=true
     fi
+    cd "$WORKING_DIR"
 }
 
 function clean_newlib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d newlib; then
 	echo_log "clean newlib"
@@ -3404,20 +3417,22 @@ function clean_newlib {
 	    make distclean
 	fi
     fi
+    cd "$WORKING_DIR"
 }
 
 function install_newlib {
-    cd ${LOCAL_SRC_PATH}/newlib
-    cd install
+    cd ${LOCAL_SRC_PATH}/newlib/install
     echo_log "install newlib"
     if ! $DRYRUN; then
 	make install
 	if test "x$?" != "x0"; then
 	    echo_log "Failed to install newlib!"
+	    cd - > /dev/null
 	    return 1
 	fi
     fi
     NEW_NEWLIB=true
+    cd - > /dev/null
 }
 
 function uninstall_newlib {
@@ -3428,6 +3443,7 @@ function uninstall_newlib {
 	    rm -r newlib/install/*
 	fi
     fi
+    cd - > /dev/null
 }
 
 function remove_newlib {
@@ -3438,6 +3454,7 @@ function remove_newlib {
 	    rm -r newlib
 	fi
     fi
+    cd - > /dev/null
 }
 
 
@@ -3445,6 +3462,7 @@ function remove_newlib {
 # rtai:
 
 function download_rtai {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d $RTAI_DIR; then
 	echo_log "keep already downloaded rtai sources"
@@ -3453,7 +3471,7 @@ function download_rtai {
 	if ! $DRYRUN; then
 	    make distclean
 	fi
-	cd -
+	cd - > /dev/null
     else
 	echo_log "download rtai sources $RTAI_DIR"
 	if ! $DRYRUN; then
@@ -3470,11 +3488,13 @@ function download_rtai {
 		    # -o option because we are root and want the files to be root!
 		else
 		    echo_log "Failed to download RTAI from \"https://www.rtai.org/userfiles/downloads/RTAI/${RTAI_DIR}.tar.bz2\"!"
+		    cd "$WORKING_DIR"
 		    return 1
 		fi
 	    fi
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to download RTAI!"
+		cd "$WORKING_DIR"
 		return 1
 	    else
 		date +"%F %H:%M" > $RTAI_DIR/revision.txt
@@ -3485,9 +3505,11 @@ function download_rtai {
     if ! $DRYRUN; then
 	ln -sfn $RTAI_DIR rtai
     fi
+    cd "$WORKING_DIR"
 }
 
 function update_rtai {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d $RTAI_DIR; then
 	cd $RTAI_DIR
@@ -3506,16 +3528,17 @@ function update_rtai {
 		git pull origin master && date +"%F %H:%M" > revision.txt
 	    fi
 	elif test -f ../${RTAI_DIR}.tar.bz2; then
-	    cd -
+	    cd - > /dev/null
 	    echo_log "remove RTAI source tree in ${LOCAL_SRC_PATH}/${RTAI_DIR}"
 	    $DRYRUN || rm -rf ${RTAI_DIR}
 	    echo_log "unpack ${RTAI_DIR}.tar.bz2"
 	    $DRYRUN || tar xof ${RTAI_DIR}.tar.bz2
-	    cd -
+	    cd - > /dev/null
 	fi
-	cd -
+	cd - > /dev/null
 	if test "x$?" != "x0"; then
 	    echo_log "Failed to update RTAI!"
+	    cd "$WORKING_DIR"
 	    return 1
 	fi
 	echo_log "set soft link rtai -> $RTAI_DIR"
@@ -3523,8 +3546,10 @@ function update_rtai {
 	    ln -sfn $RTAI_DIR rtai
 	fi
     else
+	cd "$WORKING_DIR"
 	download_rtai || return 1
     fi
+    cd "$WORKING_DIR"
 }
 
 function build_rtai {
@@ -3675,6 +3700,7 @@ EOF
 	    fi
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to patch RTAI configuration!"
+		cd - > /dev/null
 		return 1
 	    fi
 	    if ! ${MAKE_NEWLIB}; then
@@ -3696,12 +3722,14 @@ EOF
 EOF
 		if test "x$?" != "x0"; then
 		    echo_log "Failed to patch RTAI configuration for math support!"
+		    cd - > /dev/null
 		    return 1
 		fi
 	    fi
 	    make -f makefile oldconfig
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to clean RTAI configuration (make oldconfig)!"
+		cd - > /dev/null
 		return 1
 	    fi
 	    if $RTAI_MENU; then
@@ -3710,17 +3738,23 @@ EOF
 	    make -j $CPU_NUM
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to build rtai modules!"
+		cd - > /dev/null
 		return 1
 	    fi
+	    cd - > /dev/null
 	    install_rtai || return 1
+	else
+	    cd - > /dev/null
 	fi
 	NEW_RTAI=true
     else
 	echo_log "keep already built and installed rtai modules"
+	cd - > /dev/null
     fi
 }
 
 function clean_rtai { 
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d $RTAI_DIR; then
 	echo_log "clean rtai"
@@ -3729,6 +3763,7 @@ function clean_rtai {
 	    make clean
 	fi
     fi
+    cd "$WORKING_DIR"
 }
 
 function install_rtai {
@@ -3738,10 +3773,12 @@ function install_rtai {
 	make install
 	if test "x$?" != "x0"; then
 	    echo_log "Failed to install rtai modules!"
+	    cd - > /dev/null
 	    return 1
 	fi
     fi
     NEW_RTAI=true
+    cd - > /dev/null
 }
 
 function uninstall_rtai {
@@ -3767,6 +3804,7 @@ function remove_rtai {
 	    rm $RTAI_DIR.tar.*
 	fi
     fi
+    cd - > /dev/null
 }
 
 
@@ -3825,6 +3863,7 @@ function restore_rtai {
 # rtai showroom:
 
 function download_showroom {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d $SHOWROOM_DIR; then
 	echo_log "keep already downloaded rtai-showroom sources"
@@ -3834,31 +3873,37 @@ function download_showroom {
 	    PATH="$PATH:${REALTIME_DIR}/bin"
 	    make clean
 	fi
-	cd -
+	cd - > /dev/null
     else
 	echo_log "download rtai-showroom sources"
 	if ! $DRYRUN; then
 	    if ! cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $SHOWROOM_DIR; then
 		echo_log "Failed to download showroom!"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
 	    date +"%F %H:%M" > $SHOWROOM_DIR/revision.txt
 	fi
     fi
+    cd "$WORKING_DIR"
 }
 
 function update_showroom {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d $SHOWROOM_DIR; then
 	echo_log "update already downloaded rtai-showroom sources"
 	cd $SHOWROOM_DIR
 	if ! cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai update; then
 	    echo_log "Failed to update showroom!"
+	    cd "$WORKING_DIR"
 	    return 1
 	fi
 	date +"%F %H:%M" > revision.txt
+	cd "$WORKING_DIR"
 	clean_showroom
     else
+	cd "$WORKING_DIR"
 	download_showroom || return 1
     fi
 }
@@ -3871,12 +3916,15 @@ function build_showroom {
 	make
 	if test "x$?" != "x0"; then
 	    echo_log "Failed to build rtai showroom!"
+	    cd - > /dev/null
 	    return 1
 	fi
     fi
+    cd - > /dev/null
 }
 
 function clean_showroom {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d $SHOWROOM_DIR; then
 	echo_log "clean rtai showroom"
@@ -3886,6 +3934,7 @@ function clean_showroom {
 	    make clean
 	fi
     fi
+    cd "$WORKING_DIR"
 }
 
 function remove_showroom {
@@ -3896,6 +3945,7 @@ function remove_showroom {
 	    rm -r $SHOWROOM_DIR
 	fi
     fi
+    cd - > /dev/null
 }
 
 
@@ -3911,25 +3961,31 @@ function download_comedi {
 	if ! $DRYRUN; then
 	    if ! git clone https://github.com/Linux-Comedi/comedi.git comedi; then
 		echo_log "Failed to download comedi from \"git clone https://github.com/Linux-Comedi/comedi.git\"!"
+		cd - > /dev/null
 		return 1
 	    fi
 	    date +"%F %H:%M" > comedi/revision.txt
 	fi
     fi
+    cd - > /dev/null
 }
 
 function update_comedi {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedi; then
 	echo_log "Update already downloaded comedi sources."
 	cd comedi
 	if ! git pull origin master; then
 	    echo_log "Failed to update comedi!"
+	    cd "$WORKING_DIR"
 	    return 1
 	fi
 	date +"%F %H:%M" > revision.txt
+	cd "$WORKING_DIR"
 	clean_comedi
     else
+	cd "$WORKING_DIR"
 	download_comedi
     fi
 }
@@ -3951,15 +4007,20 @@ function build_comedi {
 	    make -j $CPU_NUM
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to build comedi!"
+		cd - > /dev/null
 		return 1
 	    fi
+	    cd - > /dev/null
 	    install_comedi || return 1
+	else
+	    cd - > /dev/null
 	fi
 	NEW_COMEDI=true
     fi
 }
 
 function clean_comedi {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedi; then
 	echo_log "Clean comedi."
@@ -3970,6 +4031,7 @@ function clean_comedi {
     else
 	echo_log "No comedi sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function install_comedi {
@@ -3982,6 +4044,7 @@ function install_comedi {
 	rm -rf /lib/modules/${KERNEL_ALT_NAME}/kernel/drivers/staging/comedi
     fi
 
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedi; then
 	echo_log "Install comedi."
@@ -3990,6 +4053,7 @@ function install_comedi {
 	    make install
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to install comedi!"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
 	    KERNEL_MODULES=/lib/modules/${KERNEL_NAME}
@@ -4005,9 +4069,11 @@ function install_comedi {
     else
 	echo_log "No comedi sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function uninstall_comedi {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedi; then
 	echo_log "Uninstall comedi."
@@ -4018,6 +4084,7 @@ function uninstall_comedi {
     else
 	echo_log "No comedi sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function remove_comedi {
@@ -4030,6 +4097,7 @@ function remove_comedi {
     else
 	echo_log "No comedi sources found."
     fi
+    cd - > /dev/null
 }
 
 function remove_comedi_modules {
@@ -4055,34 +4123,43 @@ function download_comedilib {
 	if ! $DRYRUN; then
 	    if ! git clone https://github.com/Linux-Comedi/comedilib.git comedilib; then
 		echo_log "Failed to download comedilib from \"git clone https://github.com/Linux-Comedi/comedilib.git\"!"
+		cd - > /dev/null
 		return 1
 	    fi
 	    date +"%F %H:%M" > comedilib/revision.txt
 	fi
     fi
+    cd - > /dev/null
 }
 
 function update_comedilib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedilib; then
 	echo_log "Update already downloaded comedilib sources."
 	cd comedilib
 	if ! git pull origin master; then
 	    echo_log "Failed to update comedilib!"
+	    cd "$WORKING_DIR"
 	    return 1
 	fi
 	date +"%F %H:%M" > revision.txt
+	cd "$WORKING_DIR"
 	clean_comedilib
     else
+	cd "$WORKING_DIR"
 	download_comedilib
     fi
 }
 
 function build_comedilib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if ! test -d comedilib; then
+	cd "$WORKING_DIR"
 	download_comedilib
     fi
+    cd ${LOCAL_SRC_PATH}
     if ! test -f comedilib/testing/comedi_test; then
 	cd comedilib
 	echo_log "Build comedilib ..."
@@ -4093,16 +4170,20 @@ function build_comedilib {
 	    make -j $CPU_NUM
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to build comedilib!"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
+	    cd "$WORKING_DIR"
 	    install_comedilib || return 1
 	fi
     else
 	echo_log "Keep already compiled comedilib."
     fi
+    cd "$WORKING_DIR"
 }
 
 function clean_comedilib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedilib; then
 	echo_log "Clean comedilib."
@@ -4111,9 +4192,11 @@ function clean_comedilib {
 	    make clean
 	fi
     fi
+    cd "$WORKING_DIR"
 }
 
 function install_comedilib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedilib; then
 	echo_log "Install comedilib."
@@ -4122,15 +4205,18 @@ function install_comedilib {
 	    make install
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to install comedilib!"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
 	fi
     else
 	echo_log "No comedilib sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function uninstall_comedilib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedilib; then
 	echo_log "Uninstall comedilib."
@@ -4141,6 +4227,7 @@ function uninstall_comedilib {
     else
 	echo_log "No comedilib sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function remove_comedilib {
@@ -4153,6 +4240,7 @@ function remove_comedilib {
     else
 	echo_log "No comedilib sources found."
     fi
+    cd - > /dev/null
 }
 
 
@@ -4168,32 +4256,40 @@ function download_comedicalib {
 	if ! $DRYRUN; then
 	    if ! git clone https://github.com/Linux-Comedi/comedi_calibrate.git comedicalib; then
 		echo_log "Failed to download comedicalib from \"git clone https://github.com/Linux-Comedi/comedi_calibrate.git\"!"
+		cd - > /dev/null
 		return 1
 	    fi
 	    date +"%F %H:%M" > comedicalib/revision.txt
 	fi
     fi
+    cd - > /dev/null
 }
 
 function update_comedicalib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedicalib; then
 	echo_log "Update already downloaded comedicalib sources."
 	cd comedicalib
 	if ! git pull origin master; then
 	    echo_log "Failed to update comedicalib!"
+	    cd "$WORKING_DIR"
 	    return 1
 	fi
 	date +"%F %H:%M" > revision.txt
+	cd "$WORKING_DIR"
 	clean_comedicalib
     else
+	cd "$WORKING_DIR"
 	download_comedicalib
     fi
 }
 
 function build_comedicalib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if ! test -d comedicalib; then
+	cd "$WORKING_DIR"
 	download_comedicalib
     fi
     if ! test -f comedicalib/comedi_calibrate/comedi_calibrate; then
@@ -4206,16 +4302,20 @@ function build_comedicalib {
 	    make -j $CPU_NUM
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to build comedicalib!"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
+	    cd "$WORKING_DIR"
 	    install_comedicalib || return 1
 	fi
     else
 	echo_log "Keep already compiled comedicalib."
     fi
+    cd "$WORKING_DIR"
 }
 
 function clean_comedicalib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedicalib; then
 	echo_log "Clean comedicalib."
@@ -4224,9 +4324,11 @@ function clean_comedicalib {
 	    make clean
 	fi
     fi
+    cd "$WORKING_DIR"
 }
 
 function install_comedicalib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedicalib; then
 	echo_log "Install comedicalib."
@@ -4235,15 +4337,18 @@ function install_comedicalib {
 	    make install
 	    if test "x$?" != "x0"; then
 		echo_log "Failed to install comedicalib!"
+		cd "$WORKING_DIR"
 		return 1
 	    fi
 	fi
     else
 	echo_log "No comedicalib sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function uninstall_comedicalib {
+    WORKING_DIR="$PWD"
     cd ${LOCAL_SRC_PATH}
     if test -d comedicalib; then
 	echo_log "Uninstall comedicalib."
@@ -4254,6 +4359,7 @@ function uninstall_comedicalib {
     else
 	echo_log "No comedicalib sources found."
     fi
+    cd "$WORKING_DIR"
 }
 
 function remove_comedicalib {
@@ -4266,6 +4372,7 @@ function remove_comedicalib {
     else
 	echo_log "No comedicalib sources found."
     fi
+    cd - > /dev/null
 }
 
 
