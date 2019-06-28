@@ -44,11 +44,15 @@
 : ${BATCH_KERNEL_PARAM:="oops=panic nmi_watchdog=panic softlockup_panic=1 unknown_nmi_panic panic=-1"} # additional kernel parameter passed to grub for test batch - we want to reboot in any case!
 : ${KERNEL_CONFIG_BACKUP:="config-backup"}     # stores initial kernel configuration for test batches
 
-: ${NEWLIB_TAR:=newlib-3.0.0.20180226.tar.gz}  # tar file of current newlib version 
-                                               # at ftp://sourceware.org/pub/newlib/index.html
-                                               # in case git does not work
+: ${NEWLIB_TAR:=newlib-3.1.0.tar.gz}  # tar file of current newlib version 
+                                      # at ftp://sourceware.org/pub/newlib/index.html
+                                      # in case git does not work
+: ${MUSL_TAR:=musl-1.1.22.tar.gz}  # tar file of current musl version 
+                                   # at https://git.musl-libc.org/cgit/musl
+                                   # in case git does not work
 
 : ${MAKE_NEWLIB:=true}        # for automatic targets make newlib library
+: ${MAKE_MUSL:=false}         # for automatic targets make musl library
 : ${MAKE_RTAI:=true}          # for automatic targets make rtai library
 : ${MAKE_COMEDI:=true}        # for automatic targets make comedi library
 
@@ -471,7 +475,8 @@ If no action is specified, a full download and build is performed for all target
 For the targets one or more of:
   packages   : required packages (install only)
   kernel     : rtai-patched linux kernel
-  newlib     : newlib library
+  newlib     : newlib library, needed for math support in kernel
+  musl       : musl library, needed for math support in kernel
   rtai       : rtai modules
   showroom   : rtai showroom examples (supports only download, build, clean, remove)
   comedi     : comedi data acquisition driver modules
@@ -691,6 +696,13 @@ function print_versions {
 	echo "  newlib     : revision not available"
     else
 	echo "  newlib     : not available"
+    fi
+    if test -r ${LOCAL_SRC_PATH}/musl/revision.txt; then
+	echo "  musl       : git from $(cat ${LOCAL_SRC_PATH}/musl/revision.txt)"
+    elif test -d ${LOCAL_SRC_PATH}/musl; then
+	echo "  musl       : revision not available"
+    else
+	echo "  musl       : not available"
     fi
     if test -r ${LOCAL_SRC_PATH}/comedi/revision.txt; then
 	echo "  comedi     : git from $(cat ${LOCAL_SRC_PATH}/comedi/revision.txt)"
@@ -938,6 +950,7 @@ function print_settings {
     echo "  RTAI_SCHED_PARAM     = $RTAI_SCHED_PARAM"
     echo "  SHOWROOM_DIR         = $SHOWROOM_DIR"
     echo "  MAKE_NEWLIB          = $MAKE_NEWLIB"
+    echo "  MAKE_MUSL            = $MAKE_MUSL"
     echo "  MAKE_RTAI            = $MAKE_RTAI"
     echo "  MAKE_COMEDI          = $MAKE_COMEDI"
     echo
@@ -996,7 +1009,7 @@ STARTUP_TIME=$STARTUP_TIME
 # (watch output of ${MAKE_RTAI_KERNEL} reconfigure for a hint):
 COMPILE_TIME=$COMPILE_TIME
 
-# Base path for sources of RTAI, newlib, and comedi:
+# Base path for sources of RTAI, newlib, musl, and comedi:
 LOCAL_SRC_PATH="$LOCAL_SRC_PATH"
 
 # Name of source and folder of RTAI sources in LOCAL_SOURCE_PATH:
@@ -1026,6 +1039,9 @@ SHOWROOM_DIR="$SHOWROOM_DIR"
 
 # Build newlib math library?
 MAKE_NEWLIB=$MAKE_NEWLIB
+
+# Build musl math library?
+MAKE_MUSL=$MAKE_MUSL
 
 # Build RTAI?
 MAKE_RTAI=$MAKE_RTAI
@@ -1327,6 +1343,7 @@ function patch_kernel {
     if test "x$RTAI_PATCH" == "xnone"; then
 	echo_log "No rtai patch applied to kernel sources"
 	MAKE_NEWLIB=false
+	MAKE_MUSL=false
 	MAKE_RTAI=false
 	MAKE_COMEDI=false
     else
@@ -3388,7 +3405,7 @@ function build_newlib {
 	echo_log "build newlib"
 	if ! $DRYRUN; then
 	    NEWLIB_CFLAGS="-fno-pie"
-	    if test "$(grep CONFIG_64BIT /usr/src/linux/.config)" = 'CONFIG_64BIT=y'; then
+	    if test "$(grep CONFIG_64BIT $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}/.config)" = 'CONFIG_64BIT=y'; then
 		NEWLIB_CFLAGS="$NEWLIB_CFLAGS -mcmodel=kernel"
 	    fi
 	    ${LOCAL_SRC_PATH}/newlib/src/newlib/configure --prefix=${LOCAL_SRC_PATH}/newlib/install --disable-shared --disable-multilib --target="$MACHINE" CFLAGS="${NEWLIB_CFLAGS}"
@@ -3452,6 +3469,145 @@ function remove_newlib {
 	echo_log "remove ${LOCAL_SRC_PATH}/newlib"
 	if ! $DRYRUN; then
 	    rm -r newlib
+	fi
+    fi
+    cd - > /dev/null
+}
+
+
+###########################################################################
+# musl:
+
+function download_musl {
+    cd ${LOCAL_SRC_PATH}
+    if test -d musl; then
+	echo_log "keep already downloaded musl sources"
+    else
+	echo_log "download musl"
+	if ! $DRYRUN; then
+	    if git clone git://git.musl-libc.org/musl; then
+		echo_log "downloaded musl from git repository"
+		date +"%F %H:%M" > musl/revision.txt
+	    elif wget https://git.musl-libc.org/cgit/musl/snapshot/$MUSL_TAR; then
+		echo_log "downloaded musl snapshot $MUSL_TAR"
+		tar xzf $MUSL_TAR
+		MUSL_DIR=${MUSL_TAR%.tar.gz}
+		mv $MUSL_DIR musl
+		echo ${MUSL_DIR#musl-} > musl/revision.txt
+	    else
+		echo_log "Failed to download musl!"
+		cd - > /dev/null
+		return 1
+	    fi
+	fi
+    fi
+    cd - > /dev/null
+}
+
+function update_musl {
+    WORKING_DIR="$PWD"
+    cd ${LOCAL_SRC_PATH}
+    if test -d musl/.git; then
+	echo_log "Update already downloaded musl sources from git repository."
+	cd musl
+	test -f Makefile.origmrk && mv Makefile.origmrk Makefile
+	if git pull origin master; then
+	    date +"%F %H:%M" > revision.txt
+	    cd "$WORKING_DIR"
+	    clean_musl
+	else
+	    echo_log "Failed to update musl from git repository!"
+	    cd "$WORKING_DIR"
+	    return 1
+	fi
+    elif ! test -f $MUSL_TAR; then
+	echo_log "Remove entire musl source tree."
+	rm -r musl
+	cd "$WORKING_DIR"
+	download_musl || return 1
+    else
+	cd - > /dev/null
+	echo_log "Keep musl source tree as is."
+    fi
+    cd "$WORKING_DIR"
+}
+
+function build_musl {
+    WORKING_DIR="$PWD"
+    cd ${LOCAL_SRC_PATH}/musl
+    LIBM_PATH=lib/libm.a
+    if test -f "$LIBM_PATH"; then
+	echo_log "keep already built musl library"
+    else
+	echo_log "build musl"
+	if ! $DRYRUN; then
+	    test -f Makefile.origmrk && mv Makefile.origmrk Makefile
+	    mv Makefile Makefile.origmrk
+	    sed 's/-fPIC//' Makefile.origmrk > Makefile
+	    MUSL_CFLAGS="-fno-common -fno-pic"
+	    if test "$(grep CONFIG_64BIT $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}/.config)" = 'CONFIG_64BIT=y'; then
+		MUSL_CFLAGS="-mcmodel=kernel ${MUSL_CFLAGS}"
+	    fi
+	    ./configure --disable-shared CFLAGS="${MUSL_CFLAGS}"
+	    make -j $CPU_NUM
+	    if test "x$?" != "x0"; then
+		echo_log "Failed to build musl!"
+		cd - > /dev/null
+		return 1
+	    fi
+	    cd "$WORKING_DIR"
+	    install_musl || return 1
+	fi
+	NEW_MUSL=true
+    fi
+    cd "$WORKING_DIR"
+}
+
+function clean_musl {
+    WORKING_DIR="$PWD"
+    cd ${LOCAL_SRC_PATH}
+    if test -d musl; then
+	echo_log "clean musl"
+	if ! $DRYRUN; then
+	    cd musl
+	    test -f Makefile.origmrk && mv Makefile.origmrk Makefile
+	    make distclean
+	fi
+    fi
+    cd "$WORKING_DIR"
+}
+
+function install_musl {
+    cd ${LOCAL_SRC_PATH}/musl
+    echo_log "install musl"
+    if ! $DRYRUN; then
+	if ! test -f lib/libc.a; then
+	    echo_log "Failed to install musl!"
+	    cd - > /dev/null
+	    return 1
+	fi
+	ar -dv lib/libc.a fwrite.o write.o fputs.o sprintf.o strcpy.o strlen.o memcpy.o memset.o
+	ar -dv lib/libc.a cpow.o cpowf.o cpowl.o
+	cp lib/libc.a lib/libm.a
+    fi
+    NEW_MUSL=true
+    cd - > /dev/null
+}
+
+function uninstall_musl {
+    cd ${LOCAL_SRC_PATH}
+    if test -d musl; then
+	echo_log "uninstall musl"
+    fi
+    cd - > /dev/null
+}
+
+function remove_musl {
+    cd ${LOCAL_SRC_PATH}
+    if test -d musl; then
+	echo_log "remove ${LOCAL_SRC_PATH}/musl"
+	if ! $DRYRUN; then
+	    rm -r musl
 	fi
     fi
     cd - > /dev/null
@@ -3561,7 +3717,7 @@ function build_rtai {
 	    LIBM_PATH=$(find ${LOCAL_SRC_PATH}/newlib/install/ -name 'libm.a' | head -n 1)
 	    test -z "$LIBM_PATH" && MAKE_NEWLIB=false
 	    # number of CPUs:
-	    CONFIG_NR_CPUS=$(grep CONFIG_NR_CPUS /usr/src/linux/.config)
+	    CONFIG_NR_CPUS=$(grep CONFIG_NR_CPUS $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}/.config)
 	    RTAI_NUM_CPUS=${CONFIG_NR_CPUS#*=}
 	    # check for configure script (no present in ShabbyX RTAI):
 	    if ! test -x configure; then
@@ -4710,11 +4866,13 @@ function full_install {
 
     uninstall_kernel
     ${MAKE_NEWLIB} && uninstall_newlib
+    ${MAKE_MUSL} && uninstall_musl
     ${MAKE_RTAI} && uninstall_rtai
     ${MAKE_COMEDI} && uninstall_comedi
 
     ${MAKE_RTAI} && { download_rtai || return 1; }
     ${MAKE_NEWLIB} && { download_newlib || MAKE_NEWLIB=false; }
+    ${MAKE_MUSL} && { download_musl || MAKE_MUSL=false; }
     ${MAKE_COMEDI} && { download_comedi || MAKE_COMEDI=false; }
     ${MAKE_COMEDI} && download_comedilib
     ${MAKE_COMEDI} && download_comedicalib
@@ -4723,6 +4881,7 @@ function full_install {
     unpack_kernel && patch_kernel && build_kernel || return 1
 
     ${MAKE_NEWLIB} && { build_newlib || MAKE_NEWLIB=false; }
+    ${MAKE_MUSL} && { build_musl || MAKE_MUSL=false; }
     ${MAKE_RTAI} && { build_rtai || return 1; }
     ${MAKE_COMEDI} && { build_comedi || MAKE_COMEDI=false; }
     ${MAKE_COMEDI} && build_comedilib
@@ -4750,6 +4909,7 @@ function reconfigure {
     unpack_kernel && patch_kernel && build_kernel || return 1
 
     ${MAKE_NEWLIB} && { build_newlib || MAKE_NEWLIB=false; }
+    ${MAKE_MUSL} && { build_musl || MAKE_MUSL=false; }
 
     ${MAKE_RTAI} && uninstall_rtai
     ${MAKE_RTAI} && { build_rtai || return 1; }
@@ -4774,6 +4934,7 @@ function download_all {
     if test -z $1; then
 	download_kernel
 	${MAKE_NEWLIB} && download_newlib
+	${MAKE_MUSL} && download_musl
 	${MAKE_RTAI} && download_rtai
 	${MAKE_COMEDI} && download_comedi
 	${MAKE_COMEDI} && download_comedilib
@@ -4782,7 +4943,8 @@ function download_all {
 	for TARGET; do
 	    case $TARGET in
 		kernel ) download_kernel ;;
-		newlib ) download_newlib ;;
+ 		newlib ) download_newlib ;;
+ 		musl ) download_musl ;;
 		rtai ) download_rtai ;;
 		showroom ) download_showroom ;;
 		comedi ) download_comedi ;;
@@ -4798,12 +4960,14 @@ function update_all {
     check_root
     if test -z $1; then
 	${MAKE_NEWLIB} && update_newlib
+	${MAKE_MUSL} && update_musl
 	${MAKE_RTAI} && update_rtai
 	${MAKE_COMEDI} && update_comedi
     else
 	for TARGET; do
 	    case $TARGET in
 		newlib ) update_newlib ;;
+		musl ) update_musl ;;
 		rtai ) update_rtai ;;
 		showroom ) update_showroom ;;
 		comedi ) update_comedi ;;
@@ -4820,6 +4984,7 @@ function build_all {
     if test -z "$1"; then
 	unpack_kernel && patch_kernel && build_kernel || return 1
 	${MAKE_NEWLIB} && { build_newlib || MAKE_NEWLIB=false; }
+	${MAKE_MUSL} && { build_musl || MAKE_MUSL=false; }
 	${MAKE_RTAI} && { build_rtai || return 1; }
 	${MAKE_COMEDI} && build_comedi
 	${MAKE_COMEDI} && build_comedilib
@@ -4835,6 +5000,11 @@ function build_all {
 		    ;;
 		newlib )
 		    build_newlib || return 1
+		    ${MAKE_RTAI} && { build_rtai || return 1; }
+		    ${MAKE_COMEDI} && build_comedi
+		    ;;
+		musl )
+		    build_musl || return 1
 		    ${MAKE_RTAI} && { build_rtai || return 1; }
 		    ${MAKE_COMEDI} && build_comedi
 		    ;;
@@ -4882,6 +5052,7 @@ function clean_all {
     if test -z "$1"; then
 	clean_kernel
 	${MAKE_NEWLIB} && clean_newlib
+	${MAKE_MUSL} && clean_musl
 	${MAKE_RTAI} && clean_rtai
 	${MAKE_COMEDI} && clean_comedi
 	${MAKE_COMEDI} && clean_comedilib
@@ -4891,6 +5062,7 @@ function clean_all {
 	    case $TARGET in
 		kernel ) clean_kernel ;;
 		newlib ) clean_newlib ;;
+		musl ) clean_musl ;;
 		rtai ) clean_rtai ;;
 		showroom ) clean_showroom ;;
 		comedi ) clean_comedi ;;
@@ -4908,6 +5080,7 @@ function install_all {
 	install_packages
 	install_kernel
 	${MAKE_NEWLIB} && install_newlib
+	${MAKE_MUSL} && install_musl
 	${MAKE_RTAI} && install_rtai
 	${MAKE_COMEDI} && install_comedi
 	${MAKE_COMEDI} && install_comedilib
@@ -4918,6 +5091,7 @@ function install_all {
 		packages ) install_packages ;;
 		kernel ) install_kernel ;;
 		newlib ) install_newlib ;;
+		musl ) install_musl ;;
 		rtai ) install_rtai ;;
 		comedi ) install_comedi ;;
 		comedilib ) install_comedilib ;;
@@ -4933,6 +5107,7 @@ function uninstall_all {
     if test -z "$1"; then
 	uninstall_kernel
 	${MAKE_NEWLIB} && uninstall_newlib
+	${MAKE_MUSL} && uninstall_musl
 	${MAKE_RTAI} && uninstall_rtai
 	${MAKE_COMEDI} && uninstall_comedi
 	${MAKE_COMEDI} && uninstall_comedilib
@@ -4942,6 +5117,7 @@ function uninstall_all {
 	    case $TARGET in
 		kernel ) uninstall_kernel ;;
 		newlib ) uninstall_newlib ;;
+		musl ) uninstall_musl ;;
 		rtai ) uninstall_rtai ;;
 		comedi ) uninstall_comedi ;;
 		comedilib ) uninstall_comedilib ;;
@@ -4957,6 +5133,7 @@ function remove_all {
     if test -z "$1"; then
 	remove_kernel
 	${MAKE_NEWLIB} && remove_newlib
+	${MAKE_MUSL} && remove_musl
 	${MAKE_RTAI} && remove_rtai
 	${MAKE_COMEDI} && remove_comedi
 	${MAKE_COMEDI} && remove_comedilib
@@ -4966,6 +5143,7 @@ function remove_all {
 	    case $TARGET in
 		kernel ) remove_kernel ;;
 		newlib ) remove_newlib ;;
+		musl ) remove_musl ;;
 		rtai ) remove_rtai ;;
 		showroom ) remove_showroom ;;
 		comedi ) remove_comedi ;;
