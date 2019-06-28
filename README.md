@@ -23,7 +23,7 @@ For a summary of test results see [RTAI tests](https://github.com/relacs/rtaites
 ## Install an RTAI-patched linux kernel, RTAI, and comedi
 
 The `makertaikernel.sh` script executes all the commands needed to
-download and build an RTAI-patched linux kernel, the newlib library
+download and build an RTAI-patched linux kernel, the newlib or musl library
 (needed for math support), and the RTAI and comedi kernel modules.
 
 Check
@@ -55,6 +55,11 @@ following instructions:
    ./makertaikernel.sh info settings
    ```
    In particular the RTAI source, i.e. the value assinged to the `RTAI_DIR` variable.
+
+   Also check whether you want to use newlib or musl for math support by setting
+   one of `MAKE_NEWLIB` and `MAKE_MUSL` to `true`.
+   
+   If you need comedi, then make sure `MAKE_COMEDI` is set to `true`.
    
    If you want to change the RTAI source, then open the configuration
    file `makertaikernel.cfg` in your favourite text editor and select
