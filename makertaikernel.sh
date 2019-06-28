@@ -4061,8 +4061,10 @@ function install_comedi {
 	    cp ${LOCAL_SRC_PATH}/comedi/comedi/Module.symvers ${KERNEL_MODULES}/comedi/
 	    cp ${LOCAL_SRC_PATH}/comedi/include/linux/comedi.h /usr/include/linux/
 	    cp ${LOCAL_SRC_PATH}/comedi/include/linux/comedilib.h /usr/include/linux/
+	    echo_log "  running depmod -a"
 	    depmod -a
 	    sleep 1
+	    echo_log "  running udevadm trigger"
 	    udevadm trigger
 	fi
 	NEW_COMEDI=true
