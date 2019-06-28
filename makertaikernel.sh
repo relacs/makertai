@@ -94,6 +94,7 @@ RTAI_MENU=false              # enter RTAI configuration menu (set with -m)
 NEW_KERNEL=false
 NEW_RTAI=false
 NEW_NEWLIB=false
+NEW_MUSL=false
 NEW_COMEDI=false
 
 CURRENT_KERNEL=$(uname -r)
@@ -949,6 +950,8 @@ function print_settings {
     echo "  RTAI_HAL_PARAM       = $RTAI_HAL_PARAM"
     echo "  RTAI_SCHED_PARAM     = $RTAI_SCHED_PARAM"
     echo "  SHOWROOM_DIR         = $SHOWROOM_DIR"
+    echo "  NEWLIB_TAR           = $NEWLIB_TAR"
+    echo "  MUSL_TAR             = $MUSL_TAR"
     echo "  MAKE_NEWLIB          = $MAKE_NEWLIB"
     echo "  MAKE_MUSL            = $MAKE_MUSL"
     echo "  MAKE_RTAI            = $MAKE_RTAI"
@@ -3710,12 +3713,35 @@ function update_rtai {
 
 function build_rtai {
     cd ${LOCAL_SRC_PATH}/${RTAI_DIR}
-    if $NEW_KERNEL || $NEW_NEWLIB || ! test -f base/sched/rtai_sched.ko || ! test -f ${REALTIME_DIR}/modules/rtai_hal.ko; then
+    if $NEW_KERNEL || $NEW_NEWLIB || $NEW_MUSL || ! test -f base/sched/rtai_sched.ko || ! test -f ${REALTIME_DIR}/modules/rtai_hal.ko; then
 	echo_log "build rtai"
 	if ! $DRYRUN; then
-	    # path to newlib math library:
-	    LIBM_PATH=$(find ${LOCAL_SRC_PATH}/newlib/install/ -name 'libm.a' | head -n 1)
-	    test -z "$LIBM_PATH" && MAKE_NEWLIB=false
+	    LIBM_ID="0"
+	    if $NEW_MUSL; then
+		LIBM_ID="3"
+	    elif $NEW_NEWLIB; then
+		LIBM_ID="1"
+	    elif $MAKE_MUSL; then
+		LIBM_ID="3"
+	    elif $MAKE_NEWLIB; then
+		LIBM_ID="1"
+	    fi
+	    if test $LIBM_ID = "3"; then
+		LIBM_PATH=${LOCAL_SRC_PATH}/musl/lib/libm.a
+		if ! test -f ${LIBM_PATH}; then
+		    MAKE_MUSL=false
+		    LIBM_ID="0"
+		fi
+	    elif test $LIBM_ID = "1"; then
+		# path to newlib math library:
+		LIBM_PATH=$(find ${LOCAL_SRC_PATH}/newlib/install/ -name 'libm.a' | head -n 1)
+		if test -z "$LIBM_PATH"; then
+		    MAKE_NEWLIB=false
+		    LIBM_ID="0"
+		fi
+	    else
+		LIBM_PATH=""
+	    fi
 	    # number of CPUs:
 	    CONFIG_NR_CPUS=$(grep CONFIG_NR_CPUS $KERNEL_PATH/linux-${LINUX_KERNEL}-${KERNEL_SOURCE_NAME}/.config)
 	    RTAI_NUM_CPUS=${CONFIG_NR_CPUS#*=}
@@ -3785,7 +3811,7 @@ function build_rtai {
  CONFIG_RTAI_USE_NEWERR=y
 -# CONFIG_RTAI_MATH is not set
 +CONFIG_RTAI_MATH=y
-+CONFIG_RTAI_MATH_LIBM_TO_USE="1"
++CONFIG_RTAI_MATH_LIBM_TO_USE="${LIBM_ID}"
 +CONFIG_RTAI_MATH_LIBM_DIR="${LIBM_PATH%/*}"
 +# CONFIG_RTAI_MATH_KCOMPLEX is not set
  CONFIG_RTAI_MALLOC=y
@@ -3836,7 +3862,7 @@ EOF
  # CONFIG_RTAI_USE_NEWERR is not set
 -# CONFIG_RTAI_MATH is not set
 +CONFIG_RTAI_MATH=y
-+CONFIG_RTAI_MATH_LIBM_TO_USE="1"
++CONFIG_RTAI_MATH_LIBM_TO_USE="${LIBM_ID}"
 +CONFIG_RTAI_MATH_LIBM_DIR="${LIBM_PATH%/*}"
 +# CONFIG_RTAI_MATH_KCOMPLEX is not set
  CONFIG_RTAI_MALLOC=y
@@ -3859,7 +3885,7 @@ EOF
 		cd - > /dev/null
 		return 1
 	    fi
-	    if ! ${MAKE_NEWLIB}; then
+	    if test ${LIBM_ID} = "0"; then
 		patch <<EOF
 --- .rtai_config_math   2018-03-14 16:29:57.156483235 +0100
 +++ .rtai_config        2018-03-14 16:30:24.116483914 +0100
@@ -4995,6 +5021,7 @@ function build_all {
 		kernel ) 
 		    unpack_kernel && patch_kernel && build_kernel || return 1
 		    ${MAKE_NEWLIB} && { build_newlib || MAKE_NEWLIB=false; }
+		    ${MAKE_MUSL} && { build_musl || MAKE_MUSL=false; }
 		    ${MAKE_RTAI} && { build_rtai || return 1; }
 		    ${MAKE_COMEDI} && build_comedi
 		    ;;
