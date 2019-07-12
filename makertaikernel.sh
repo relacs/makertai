@@ -487,7 +487,6 @@ action can be one of:
   download   : download missing sources of the specified targets
   update     : update sources of the specified targets (not for kernel target)
   patch      : clean, unpack, and patch the linux kernel with the rtai patch (no target required)
-  prepare    : prepare kernel configurations for a test batch (no target required)
   build      : compile and install the specified targets and the depending ones if needed
   buildplain : compile and install the kernel without the rtai patch (no target required)
   clean      : clean the source trees of the specified targets
@@ -513,6 +512,7 @@ Action can be also one of
                (run "${MAKE_RTAI_KERNEL} help setup" for details)
   restore    : restore the original system settings
                (run "${MAKE_RTAI_KERNEL} help restore" for details)
+  prepare    : prepare kernel configurations for a test batch (no target required)
   test       : test the current kernel and write reports to the current working directory 
                (run "${MAKE_RTAI_KERNEL} help test" for details)
   report     : summarize test results from latencies* files given in FILES
@@ -4890,6 +4890,7 @@ function full_install {
 
     install_packages ||	return 1
 
+    ${MAKE_RTAI} && uninstall_rtai
     uninstall_kernel
     ${MAKE_NEWLIB} && uninstall_newlib
     ${MAKE_MUSL} && uninstall_musl
@@ -4931,6 +4932,7 @@ function reconfigure {
 
     SECONDS=0
 
+    ${MAKE_RTAI} && uninstall_rtai
     uninstall_kernel
     unpack_kernel && patch_kernel && build_kernel || return 1
 
@@ -5059,6 +5061,7 @@ function buildplain_kernel {
     SECONDS=0
 
     NEW_KERNEL_CONFIG=true
+    ${MAKE_RTAI} && uninstall_rtai
     uninstall_kernel
     unpack_kernel && build_kernel || return 1
 
@@ -5142,7 +5145,10 @@ function uninstall_all {
     else
 	for TARGET; do
 	    case $TARGET in
-		kernel ) uninstall_kernel ;;
+		kernel ) 
+		    ${MAKE_RTAI} && uninstall_rtai
+		    uninstall_kernel
+		    ;;
 		newlib ) uninstall_newlib ;;
 		musl ) uninstall_musl ;;
 		rtai ) uninstall_rtai ;;
