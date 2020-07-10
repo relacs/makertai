@@ -151,8 +151,8 @@ function help_kernel_options {
 -d    : dry run - only print out what the script would do, but do not execute any command
 -k xxx: use linux kernel version xxx (LINUX_KERNEL=${LINUX_KERNEL})
 -r xxx: the rtai source (RTAI_DIR=${RTAI_DIR}), one of
-        magma: current rtai development version from csv
-        vulcano: stable rtai development version from csv
+        magma: current rtai development version from cvs
+        vulcano: stable rtai development version from cvs
         rtai-5.1: rtai release version 5.1 from www.rtai.org
         rtai-4.1: rtai release version 4.1 from www.rtai.org, or any other
         rtai-x.x: rtai release version x.x from www.rtai.org
@@ -3635,9 +3635,9 @@ function download_rtai {
 	echo_log "download rtai sources $RTAI_DIR"
 	if ! $DRYRUN; then
 	    if test "x$RTAI_DIR" = "xmagma"; then
-		cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $RTAI_DIR
+		cvs -z3 -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $RTAI_DIR
 	    elif test "x$RTAI_DIR" = "xvulcano"; then
-		cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $RTAI_DIR
+		cvs -z3 -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $RTAI_DIR
 	    elif test "x$RTAI_DIR" = "xRTAI"; then
 		git clone https://github.com/ShabbyX/RTAI.git
 	    else
@@ -3679,7 +3679,7 @@ function update_rtai {
 	if test -d CVS; then
 	    echo_log "update already downloaded rtai sources"
 	    if ! $DRYRUN; then
-		cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai update && date +"%F %H:%M" > revision.txt
+		cvs -z3 -d:pserver:anonymous@cvs.gna.org:/cvs/rtai update && date +"%F %H:%M" > revision.txt
 	    fi
 	elif test -d .git; then
 	    echo_log "update already downloaded rtai sources"
@@ -4059,7 +4059,7 @@ function download_showroom {
     else
 	echo_log "download rtai-showroom sources"
 	if ! $DRYRUN; then
-	    if ! cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $SHOWROOM_DIR; then
+	    if ! cvs -z3 -d:pserver:anonymous@cvs.gna.org:/cvs/rtai co $SHOWROOM_DIR; then
 		echo_log "Failed to download showroom!"
 		cd "$WORKING_DIR"
 		return 1
@@ -4076,7 +4076,7 @@ function update_showroom {
     if test -d $SHOWROOM_DIR; then
 	echo_log "update already downloaded rtai-showroom sources"
 	cd $SHOWROOM_DIR
-	if ! cvs -d:pserver:anonymous@cvs.gna.org:/cvs/rtai update; then
+	if ! cvs -z3 -d:pserver:anonymous@cvs.gna.org:/cvs/rtai update; then
 	    echo_log "Failed to update showroom!"
 	    cd "$WORKING_DIR"
 	    return 1
