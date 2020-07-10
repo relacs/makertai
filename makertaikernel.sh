@@ -4241,8 +4241,7 @@ function install_comedi {
 	    KERNEL_MODULES=/lib/modules/${KERNEL_NAME}
 	    test -d "$KERNEL_MODULES" || KERNEL_MODULES=/lib/modules/${KERNEL_ALT_NAME}
 	    cp ${LOCAL_SRC_PATH}/comedi/comedi/Module.symvers ${KERNEL_MODULES}/comedi/
-	    cp ${LOCAL_SRC_PATH}/comedi/include/linux/comedi.h /usr/include/linux/
-	    cp ${LOCAL_SRC_PATH}/comedi/include/linux/comedilib.h /usr/include/linux/
+	    cp ${LOCAL_SRC_PATH}/comedi/include/linux/comedi*.h /usr/include/linux/
 	    echo_log "  running depmod -a"
 	    depmod -a
 	    sleep 1
