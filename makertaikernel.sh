@@ -1681,11 +1681,18 @@ function uninstall_kernel {
     fi
     echo_log "uninstall kernel ${KERNEL_NAME}"
     if ! $DRYRUN; then
+	FAILED=false
 	if ! apt-get -y remove linux-image-${KERNEL_NAME}; then
 	    if ! apt-get -y remove linux-image-${KERNEL_ALT_NAME}; then
-		echo_log "Failed to uninstall linux kernel package \"linux-image-${KERNEL_NAME}\"!"
-		return 1
+		echo_log "Failed to uninstall linux kernel package \"linux-image-${KERNEL_NAME}\" via apt!"
+		FAILED=true
 	    fi
+	fi
+	if $FAILED; then
+	    echo_log "uninstall kernel \"${KERNEL_NAME}\" manually ..."
+	    rm -rf /lib/modules/${KERNEL_NAME}
+	    rm /boot/*${KERNEL_NAME}
+	    update-grub
 	fi
     fi
 }
