@@ -70,10 +70,11 @@ following instructions:
    ```
    sudo ./makertaikernel.sh init
    ```
-   to make sure you have `/var/log/messages` (needed for RTAI switch
-   tests), get a visible boot menu, can pass kernel parameter to the
-   RTAI kernel, have comedi devices assigned to the `iocard` group,
-   and have the RTAI sources downloaded.
+   to download all required packages, make sure you have
+   `/var/log/messages` (needed for RTAI switch tests), get a visible
+   boot menu, can pass kernel parameter to the RTAI kernel, have
+   comedi devices assigned to the `iocard` group, and have the RTAI
+   sources downloaded.
 
    This command ends with showing you the RTAI kernel patches
    available for your machine.

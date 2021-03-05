@@ -12,9 +12,9 @@
 : ${LOCAL_SRC_PATH:=/usr/local/src} # directory for downloading and building 
                               # rtai, newlib and comedi
 
-: ${RTAI_DIR="rtai-5.1"}      # name of the rtai source directory (set with -r):
+: ${RTAI_DIR="rtai-5.2"}      # name of the rtai source directory (set with -r):
                               # official relases for download (www.rtai.org):
-                              # - rtai-4.1: rtai release version 4.1
+                              # - rtai-5.2: rtai release version 5.2
                               # - rtai-5.1: rtai release version 5.1
                               # - rtai-x.x: rtai release version x.x
                               # from cvs (http://cvs.gna.org/cvsweb/?cvsroot=rtai):
@@ -1191,6 +1191,7 @@ function check_kernel_patch {
 	if ! test -d "${LOCAL_SRC_PATH}/${RTAI_DIR}"; then
 	    echo_log
 	    echo_log "Error: RTAI source directory ${LOCAL_SRC_PATH}/${RTAI_DIR} does not exist."
+	    echo_log
 	    echo_log "Download RTAI sources by running"
 	    echo_log "$ ./${MAKE_RTAI_KERNEL} download rtai"
 	    return 10
@@ -3648,7 +3649,7 @@ function download_rtai {
 	    elif test "x$RTAI_DIR" = "xRTAI"; then
 		git clone https://github.com/ShabbyX/RTAI.git
 	    else
-		if wget https://www.rtai.org/userfiles/downloads/RTAI/${RTAI_DIR}.tar.bz2; then
+		if wget --no-check-certificate https://www.rtai.org/userfiles/downloads/RTAI/${RTAI_DIR}.tar.bz2; then
 		    echo_log "unpack ${RTAI_DIR}.tar.bz2"
 		    tar xof ${RTAI_DIR}.tar.bz2
 		    # -o option because we are root and want the files to be root!
